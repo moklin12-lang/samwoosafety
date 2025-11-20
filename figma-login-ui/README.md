@@ -1,4 +1,4 @@
-# Coupang Logistics Services - 로그인 페이지
+# SAMWOOSAFETY Services - 로그인 페이지
 
 Figma 디자인을 기반으로 구현한 로그인 페이지 UI입니다.
 
@@ -56,4 +56,5 @@ figma-login-ui/
 - [ ] 공지사항 상세 페이지
 - [ ] 반응형 디자인 개선
 - [ ] 이미지 에셋 로컬 저장
+
 
