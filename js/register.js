@@ -12,8 +12,37 @@ function toggleRegPw(inputId, iconId) {
   }
 }
 
-// ===== 전화번호 자동 하이픈 =====
+// ===== 공백 실시간 차단 (입력 즉시 공백 제거) =====
 document.addEventListener('DOMContentLoaded', () => {
+  // 공백 차단 대상 필드 ID 목록
+  const noSpaceFields = ['reg-id', 'reg-name', 'reg-pw', 'reg-pw2', 'reg-car'];
+
+  noSpaceFields.forEach(fieldId => {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.addEventListener('input', e => {
+      const pos = e.target.selectionStart;
+      const hasSpace = e.target.value.includes(' ');
+      if (hasSpace) {
+        e.target.value = e.target.value.replace(/ /g, '');
+        // 커서 위치 보정 (제거된 공백 수만큼 앞으로)
+        const newPos = Math.max(0, pos - (e.target.value.length - e.target.value.replace(/ /g, '').length));
+        e.target.setSelectionRange(newPos, newPos);
+      }
+    });
+    // 붙여넣기 시에도 공백 제거
+    el.addEventListener('paste', e => {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData('text');
+      const clean  = pasted.replace(/ /g, '');
+      const start  = el.selectionStart;
+      const end    = el.selectionEnd;
+      el.value = el.value.slice(0, start) + clean + el.value.slice(end);
+      el.setSelectionRange(start + clean.length, start + clean.length);
+    });
+  });
+
+  // ===== 전화번호 자동 하이픈 =====
   const telInput = document.getElementById('reg-tel');
   if (telInput) {
     telInput.addEventListener('input', e => {
@@ -49,6 +78,10 @@ function validateAll() {
     setMsg('msg-id', '아이디를 입력해주세요.', 'err');
     setInputState('reg-id', 'error');
     valid = false;
+  } else if (/\s/.test(id)) {
+    setMsg('msg-id', '아이디에 공백을 사용할 수 없습니다.', 'err');
+    setInputState('reg-id', 'error');
+    valid = false;
   } else if (id.length < 4) {
     setMsg('msg-id', '4자 이상 입력해주세요.', 'err');
     setInputState('reg-id', 'error');
@@ -68,6 +101,10 @@ function validateAll() {
     setMsg('msg-name', '이름을 입력해주세요.', 'err');
     setInputState('reg-name', 'error');
     valid = false;
+  } else if (/\s/.test(name)) {
+    setMsg('msg-name', '이름에 공백을 사용할 수 없습니다.', 'err');
+    setInputState('reg-name', 'error');
+    valid = false;
   } else {
     setMsg('msg-name', '', '');
     setInputState('reg-name', 'success');
@@ -78,6 +115,10 @@ function validateAll() {
   const pwReg = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
   if (!pw) {
     setMsg('msg-pw', '비밀번호를 입력해주세요.', 'err');
+    setInputState('reg-pw', 'error');
+    valid = false;
+  } else if (/\s/.test(pw)) {
+    setMsg('msg-pw', '비밀번호에 공백을 사용할 수 없습니다.', 'err');
     setInputState('reg-pw', 'error');
     valid = false;
   } else if (!pwReg.test(pw)) {
@@ -93,6 +134,10 @@ function validateAll() {
   const pw2 = document.getElementById('reg-pw2').value;
   if (!pw2) {
     setMsg('msg-pw2', '비밀번호를 다시 입력해주세요.', 'err');
+    setInputState('reg-pw2', 'error');
+    valid = false;
+  } else if (/\s/.test(pw2)) {
+    setMsg('msg-pw2', '비밀번호에 공백을 사용할 수 없습니다.', 'err');
     setInputState('reg-pw2', 'error');
     valid = false;
   } else if (pw !== pw2) {

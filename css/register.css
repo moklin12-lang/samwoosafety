@@ -1,25 +1,32 @@
 /* ===== 회원가입 전용 스타일 ===== */
 
-/* 회원가입 페이지 body — overflow 해제하여 스크롤 허용 */
+/* 회원가입 페이지 body — overflow 완전 해제하여 스크롤 허용 */
 body.reg-page {
   overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  min-height: 100vh !important;
 }
 
 /* 메인 영역 - 스크롤 가능하도록 */
 .reg-main {
-  align-items: flex-start;
-  padding: 30px 20px 40px;
-  min-height: calc(100vh - 60px - 60px); /* 헤더+푸터 제외 */
+  align-items: center;
+  justify-content: flex-start;
+  padding: 30px 20px 50px;
+  min-height: unset;
   height: auto;
   overflow: visible;
+  flex: none;
 }
 
 /* 카드 - 로그인보다 넓게 */
 .reg-card {
   max-width: 540px !important;
+  width: 100% !important;
   padding: 36px 40px 32px !important;
   height: auto !important;
   max-height: none !important;
+  margin: 0 auto;
 }
 
 /* 카드 헤더 (제목 + 닫기 버튼 행) */
@@ -401,13 +408,14 @@ body.reg-page {
 
 /* 태블릿 (768px ~ 1023px) */
 @media (max-width: 1023px) {
+  .reg-main { padding: 24px 20px 44px; }
   .reg-card { max-width: 500px !important; padding: 32px 32px 28px !important; }
   .reg-title { font-size: 1.35rem; }
 }
 
 /* 모바일 (480px ~ 767px) */
 @media (max-width: 767px) {
-  .reg-main { padding: 20px 14px 30px; }
+  .reg-main { padding: 20px 14px 40px; }
   .reg-card { padding: 28px 20px 24px !important; }
   .reg-title { font-size: 1.25rem; }
   .reg-row  { grid-template-columns: 1fr; }
@@ -430,7 +438,7 @@ body.reg-page {
 
 /* 소형 모바일 (~479px) */
 @media (max-width: 479px) {
-  .reg-main { padding: 12px 10px 24px; }
+  .reg-main { padding: 12px 10px 36px; }
   .reg-card {
     padding: 22px 14px 20px !important;
     border-radius: 10px;
@@ -444,4 +452,12 @@ body.reg-page {
   .reg-btn      { height: 48px; }
   .reg-login-link { font-size: 0.78rem; }
   .reg-modal-agree-btn { width: 100%; justify-content: center; }
+}
+
+/* 화면 높이가 작을 때 카드가 잘리지 않도록 */
+@media (max-height: 800px) {
+  .reg-main { padding-top: 16px; padding-bottom: 40px; }
+}
+@media (max-height: 650px) {
+  .reg-main { padding-top: 10px; padding-bottom: 30px; }
 }

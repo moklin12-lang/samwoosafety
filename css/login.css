@@ -14,6 +14,13 @@ input { font-family: inherit; }
   overflow: hidden;
 }
 
+/* 회원가입 페이지는 스크롤 필요 — overflow 재정의 */
+.login-page.reg-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: auto;
+}
+
 /* ===== 배경 이미지 (물류창고 항공사진) ===== */
 .bg-image {
   position: fixed;
