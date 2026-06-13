@@ -56,7 +56,7 @@
 <nav class="tab-nav" id="tab-nav">
   <div class="tab-nav-inner">
     <button class="tab-item active" data-tab="main">
-      <i class="fas fa-home"></i><span>메인</span>
+      <i class="fas fa-home"></i><span>공지</span>
     </button>
     <button class="tab-item highlight" data-tab="newcomer">
       <i class="fas fa-user-plus"></i><span>신규 입사자</span>
@@ -90,7 +90,7 @@
 
   <!-- 왼쪽 사이드패널 -->
   <aside class="side-panel">
-    <p class="side-panel-label" id="side-label">메인</p>
+    <p class="side-panel-label" id="side-label">공지</p>
     <button class="btn-write" id="btn-write" onclick="openWriteModal()">
       <i class="fas fa-plus"></i> 게시물 작성
     </button>
@@ -315,7 +315,7 @@
           <!-- JS 렌더 -->
         </div>
 
-        <!-- ─── 회원 목록 다운로드 ─── -->
+        <!-- 회원 목록 다운로드 -->
         <div class="stats-section-card">
           <div class="stats-section-header">
             <div class="stats-section-title">
@@ -355,7 +355,7 @@
           </div>
         </div>
 
-        <!-- ─── 시청 내역 다운로드 ─── -->
+        <!-- 시청 내역 다운로드 -->
         <div class="stats-section-card">
           <div class="stats-section-header">
             <div class="stats-section-title">
@@ -410,7 +410,6 @@
     </div>
     <div class="modal-body-area">
 
-      <!-- 공개 범위 안내 배너 (JS에서 채움) -->
       <div id="write-scope-banner"></div>
 
       <div class="form-row">
@@ -420,7 +419,7 @@
       <div class="form-row">
         <label>카테고리</label>
         <select id="write-category" class="write-input">
-          <option value="main">메인</option>
+          <option value="main">공지</option>
           <option value="newcomer">신규 입사자</option>
           <option value="appliance">가전 안전</option>
           <option value="aircon">에어컨 안전</option>
@@ -439,7 +438,6 @@
         <input type="text" id="write-video" class="write-input" placeholder="https://www.youtube.com/watch?v=..." />
       </div>
 
-      <!-- 사진 첨부 -->
       <div class="form-row">
         <label>
           사진 첨부
@@ -451,11 +449,9 @@
           <p class="attach-drop-limit">JPG · PNG · GIF / 장당 최대 1MB</p>
           <input type="file" id="img-file-input" accept="image/jpeg,image/png,image/gif" multiple hidden />
         </div>
-        <!-- 사진 미리보기 목록 -->
         <div class="attach-preview-list" id="img-preview-list"></div>
       </div>
 
-      <!-- 동영상 첨부 -->
       <div class="form-row">
         <label>
           동영상 첨부
@@ -467,7 +463,6 @@
           <p class="attach-drop-limit">MP4 · MOV · AVI / 개당 최대 50MB / 최대 3개</p>
           <input type="file" id="vid-file-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/*" multiple hidden />
         </div>
-        <!-- 동영상 미리보기 목록 (JS 렌더) -->
         <div id="vid-preview-list" class="vid-preview-list"></div>
       </div>
 
@@ -482,23 +477,19 @@
 <!-- ===== 접속 팝업 모달 ===== -->
 <div class="popup-overlay hidden" id="site-popup-overlay">
   <div class="site-popup-box" id="site-popup-box">
-    <!-- 팝업 상단 헤더 (유형 배지 + 닫기) -->
     <div class="site-popup-header" id="site-popup-header">
       <span class="site-popup-type-badge" id="site-popup-badge"></span>
       <button class="site-popup-close-btn" onclick="closeSitePopup(false)" title="닫기">
         <i class="fas fa-times"></i>
       </button>
     </div>
-    <!-- 팝업 이미지 (있을 때만) -->
     <div class="site-popup-img-wrap hidden" id="site-popup-img-wrap">
       <img id="site-popup-img" src="" alt="팝업 이미지" />
     </div>
-    <!-- 팝업 제목 & 본문 -->
     <div class="site-popup-body">
       <h3 class="site-popup-title" id="site-popup-title"></h3>
       <div class="site-popup-content" id="site-popup-content"></div>
     </div>
-    <!-- 팝업 하단 -->
     <div class="site-popup-footer" id="site-popup-footer">
       <label class="popup-skip-label" id="popup-skip-label">
         <input type="checkbox" id="popup-skip-today-chk" />
@@ -518,14 +509,10 @@
       <button class="modal-x-btn" onclick="closeMemberEditModal()"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body-area">
-
-      <!-- 아이디 (읽기 전용) -->
       <div class="form-row">
         <label>아이디 <span class="mem-readonly-badge">수정 불가</span></label>
         <input type="text" id="medit-id" class="write-input mem-readonly-input" readonly />
       </div>
-
-      <!-- 이름 / 전화번호 -->
       <div class="medit-row">
         <div class="form-row">
           <label>이름 <span class="mem-req">*</span></label>
@@ -538,8 +525,6 @@
           <span class="medit-msg" id="medit-msg-tel"></span>
         </div>
       </div>
-
-      <!-- 소속 부서 / 업무구분 -->
       <div class="medit-row">
         <div class="form-row">
           <label>소속 부서 <span class="mem-req">*</span></label>
@@ -571,14 +556,10 @@
           <span class="medit-msg" id="medit-msg-role"></span>
         </div>
       </div>
-
-      <!-- 차량번호 -->
       <div class="form-row">
         <label>차량번호</label>
         <input type="text" id="medit-car" class="write-input" placeholder="차량번호(선택)" />
       </div>
-
-      <!-- 상태 -->
       <div class="form-row">
         <label>계정 상태 <span class="mem-req">*</span></label>
         <select id="medit-status" class="write-input medit-select">
@@ -587,13 +568,10 @@
           <option value="rejected">거부됨</option>
         </select>
       </div>
-
-      <!-- 메모 -->
       <div class="form-row">
         <label>관리자 메모 <span style="font-size:0.72rem;color:#94a3b8;font-weight:400">(선택)</span></label>
         <textarea id="medit-memo" class="write-textarea" style="min-height:70px" placeholder="내부 메모 (회원에게 노출되지 않음)"></textarea>
       </div>
-
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeMemberEditModal()">취소</button>
@@ -605,7 +583,6 @@
 <!-- ===== 시청내역 조회 모달 ===== -->
 <div class="modal-overlay hidden" id="view-history-modal">
   <div class="modal-box vh-modal-box">
-    <!-- 모달 헤더 -->
     <div class="vh-modal-header">
       <div class="vh-header-left">
         <div class="vh-user-avatar" id="vh-avatar-char">?</div>
@@ -621,7 +598,6 @@
         </button>
       </div>
     </div>
-    <!-- 테이블 -->
     <div class="vh-table-wrap">
       <table class="vh-table">
         <thead>
@@ -643,7 +619,6 @@
         </tbody>
       </table>
     </div>
-    <!-- 모달 푸터 -->
     <div class="vh-modal-footer">
       <button class="btn-cancel" onclick="closeViewHistoryModal()">닫기</button>
     </div>
