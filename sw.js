@@ -1,24 +1,13 @@
 // ===== 삼우에프엔지 안전 교육장 Service Worker =====
-const CACHE_NAME = 'samwoo-lms-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/data.js',
-  '/js/app.js',
-  '/manifest.json',
-];
+// ※ 파일 수정 시 버전 번호를 올리면 모든 사용자에게 캐시가 자동 초기화됩니다.
+const CACHE_NAME = 'samwoo-lms-v3';
 
-// 설치: 핵심 자산 캐싱
+// 설치: skipWaiting으로 즉시 활성화
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
-// 활성화: 구 캐시 정리
+// 활성화: 이전 버전 캐시 전체 삭제
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -29,26 +18,28 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 요청 처리: Cache First 전략
+// 요청 처리: Network First 전략
+// 항상 서버에서 최신 파일을 먼저 가져오고, 오프라인일 때만 캐시 사용
 self.addEventListener('fetch', (event) => {
-  // 크로스 오리진 요청 제외
+  // 크로스 오리진 요청(Supabase API 등) 제외
   if (!event.request.url.startsWith(self.location.origin)) return;
+  // POST/PATCH/DELETE 등 변경 요청은 캐시 미사용
+  if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // 유효한 응답만 캐싱
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
+    fetch(event.request).then((response) => {
+      // 유효한 응답이면 캐시에 저장(다음 오프라인 대비)
+      if (response && response.status === 200 && response.type === 'basic') {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      });
+      }
+      return response;
     }).catch(() => {
-      // 오프라인 폴백
-      return caches.match('/index.html');
+      // 네트워크 실패 시 캐시 폴백
+      return caches.match(event.request).then(cached => {
+        return cached || caches.match('/index.html');
+      });
     })
   );
 });
+
