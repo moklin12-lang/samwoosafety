@@ -1,15 +1,25 @@
 /* ===== 회원가입 전용 스타일 ===== */
 
+/* 회원가입 페이지 body — overflow 해제하여 스크롤 허용 */
+body.reg-page {
+  overflow-y: auto !important;
+}
+
 /* 메인 영역 - 스크롤 가능하도록 */
 .reg-main {
   align-items: flex-start;
   padding: 30px 20px 40px;
+  min-height: calc(100vh - 60px - 60px); /* 헤더+푸터 제외 */
+  height: auto;
+  overflow: visible;
 }
 
 /* 카드 - 로그인보다 넓게 */
 .reg-card {
   max-width: 540px !important;
   padding: 36px 40px 32px !important;
+  height: auto !important;
+  max-height: none !important;
 }
 
 /* 카드 헤더 (제목 + 닫기 버튼 행) */

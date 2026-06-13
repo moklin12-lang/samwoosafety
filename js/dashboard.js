@@ -608,7 +608,7 @@ function switchTab(tab) {
 
   // 사이드 레이블 업데이트
   const labels = {
-    main: '메인', newcomer: '신규 입사자', appliance: '가전 안전',
+    main: '공지', newcomer: '신규 입사자', appliance: '가전 안전',
     aircon: '에어컨 안전', warehouse: '창고 안전', regulation: '안전 규정',
     'major-accident': '중대재해알림', violation: '안전미준수사례', admin: '관리자메뉴'
   };
