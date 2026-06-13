@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#1e3a8a"/>
+  <!-- 헬멧 -->
+  <ellipse cx="32" cy="30" rx="16" ry="11" fill="#ffffff"/>
+  <rect x="16" y="37" width="32" height="4" rx="2" fill="#ffffff"/>
+  <!-- 방패 체크 -->
+  <path d="M32 18 L39 22 L39 32 Q39 38 32 41 Q25 38 25 32 L25 22 Z" fill="#3b82f6"/>
+  <path d="M28 30 L31 33 L37 26" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

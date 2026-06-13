@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>삼우에프엔지 안전 교육장</title>
+  <meta name="description" content="삼우에프엔지 안전 교육장 - Samwoo Safety Education Center" />
+  <meta name="theme-color" content="#1e3a8a" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body class="login-page">
+
+  <!-- 배경 오버레이 -->
+  <div class="bg-overlay"></div>
+
+  <!-- 배경 이미지 (항공사진) -->
+  <div class="bg-image"></div>
+
+  <!-- 상단 헤더 -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="site-logo">
+        <div class="logo-emblem">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="23" stroke="white" stroke-width="2" fill="rgba(30,58,138,0.7)"/>
+            <!-- 방패 -->
+            <path d="M24 10 L34 15 L34 26 Q34 34 24 38 Q14 34 14 26 L14 15 Z" fill="#3b82f6" stroke="white" stroke-width="1"/>
+            <!-- 체크 -->
+            <path d="M19 24 L22.5 27.5 L30 20" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="logo-text-wrap">
+          <span class="logo-main-text">삼우에프엔지 안전 교육장</span>
+          <span class="logo-sub-text">Samwoo Safety Education Center</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 콘텐츠 -->
+  <main class="login-main">
+    <div class="login-card">
+
+      <h1 class="login-title">로그인</h1>
+
+      <form id="login-form" class="login-form" onsubmit="handleLogin(event)">
+
+        <!-- 아이디 -->
+        <div class="form-group">
+          <label class="form-label" for="user-id">아이디</label>
+          <input
+            type="text"
+            id="user-id"
+            class="form-input"
+            placeholder="아이디를 입력하세요"
+            autocomplete="username"
+          />
+        </div>
+
+        <!-- 비밀번호 -->
+        <div class="form-group">
+          <div class="label-row">
+            <label class="form-label" for="user-pw">비밀번호</label>
+            <a href="#" class="pw-reset-link" onclick="showMsg('비밀번호 재설정 페이지로 이동합니다.')">비밀번호 재설정</a>
+          </div>
+          <div class="pw-input-wrap">
+            <input
+              type="password"
+              id="user-pw"
+              class="form-input"
+              placeholder="비밀번호를 입력하세요"
+              autocomplete="current-password"
+            />
+            <button type="button" class="pw-toggle-btn" onclick="togglePw()" title="비밀번호 보기">
+              <i class="fas fa-eye" id="pw-eye-icon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 로그인 상태 유지 -->
+        <div class="remember-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="remember-me" class="checkbox-input" />
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-text">로그인 상태 유지</span>
+          </label>
+        </div>
+
+        <!-- 오류 메시지 -->
+        <div id="login-error" class="login-error hidden">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="error-text">아이디 또는 비밀번호를 확인해주세요.</span>
+        </div>
+
+        <!-- 로그인 버튼 -->
+        <button type="submit" class="login-btn" id="login-btn">
+          <span id="btn-text">로그인</span>
+          <span id="btn-spinner" class="btn-spinner hidden">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+        </button>
+
+      </form>
+
+      <!-- 하단 링크 -->
+      <div class="login-links">
+        <a href="#" onclick="showMsg('회원가입 페이지로 이동합니다.')">회원가입</a>
+        <span class="divider">|</span>
+        <a href="#" onclick="showMsg('아이디 찾기 페이지로 이동합니다.')">아이디 찾기</a>
+        <span class="divider">|</span>
+        <a href="#" onclick="showMsg('비밀번호 찾기 페이지로 이동합니다.')">비밀번호 찾기</a>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 하단 푸터 -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-info">
+        <span>㈜삼우에프엔지</span>
+        <span class="f-div">|</span>
+        <span>대표이사: 홍길동</span>
+        <span class="f-div">|</span>
+        <span>사업자등록번호: 123-45-67890</span>
+        <span class="f-div">|</span>
+        <span>주소: 경기도 김포시 대곶면 대곶북로 000</span>
+        <span class="f-div">|</span>
+        <span>Tel: 031-000-0000</span>
+        <span class="f-div">|</span>
+        <span>E-mail: safety@samwoofg.co.kr</span>
+      </div>
+      <div class="footer-copy">
+        COPYRIGHT © SAMWOO F&amp;G ALL RIGHTS RESERVED.
+      </div>
+    </div>
+  </footer>
+
+  <!-- 토스트 메시지 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>
