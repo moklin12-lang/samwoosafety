@@ -340,10 +340,48 @@ input { font-family: inherit; }
 }
 
 /* ===== 반응형 ===== */
-@media (max-width: 480px) {
-  .site-header { padding: 16px 20px; }
+
+/* 태블릿 (768px ~ 1023px) */
+@media (max-width: 1023px) {
+  .site-header { padding: 16px 28px; }
+  .logo-emblem  { width: 44px; height: 44px; }
+  .logo-main-text { font-size: 1.1rem; }
+  .login-card { max-width: 400px; }
+  .site-footer { padding: 16px 28px; }
+}
+
+/* 모바일 (480px ~ 767px) */
+@media (max-width: 767px) {
+  .site-header { padding: 14px 18px; }
+  .logo-emblem  { width: 38px; height: 38px; }
   .logo-main-text { font-size: 1rem; }
+  .logo-sub-text  { font-size: 0.7rem; }
   .login-card { padding: 32px 24px 28px; }
-  .site-footer { padding: 14px 20px; }
-  .footer-info { font-size: 0.68rem; }
+  .login-title { font-size: 1.25rem; }
+  .site-footer { padding: 14px 18px; }
+  .footer-info { flex-direction: column; gap: 4px; text-align: center; }
+  .footer-info .f-div { display: none; }
+  .toast { white-space: normal; text-align: center; max-width: calc(100vw - 32px); }
+}
+
+/* 소형 모바일 (~479px) */
+@media (max-width: 479px) {
+  .site-header { padding: 12px 14px; }
+  .logo-emblem  { width: 34px; height: 34px; }
+  .logo-main-text { font-size: 0.92rem; }
+  .logo-sub-text  { display: none; }
+  .login-main { padding: 16px 12px; }
+  .login-card {
+    padding: 28px 18px 24px;
+    border-radius: 10px;
+  }
+  .login-title { font-size: 1.15rem; margin-bottom: 22px; }
+  .form-input  { height: 46px; font-size: 0.92rem; }
+  .login-btn   { height: 48px; font-size: 1rem; }
+  .login-links { flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .login-links .divider { display: none; }
+  .login-links a { width: 100%; text-align: center; }
+  .site-footer { padding: 12px 14px; }
+  .footer-info { font-size: 0.65rem; }
+  .footer-copy { font-size: 0.65rem; }
 }

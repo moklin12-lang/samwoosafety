@@ -1,7 +1,7 @@
 // ===== 비밀번호 보기/숨기기 =====
 function togglePw() {
   const input = document.getElementById('user-pw');
-  const icon = document.getElementById('pw-eye-icon');
+  const icon  = document.getElementById('pw-eye-icon');
   if (input.type === 'password') {
     input.type = 'text';
     icon.classList.replace('fa-eye', 'fa-eye-slash');
@@ -11,18 +11,17 @@ function togglePw() {
   }
 }
 
-// ===== 로그인 처리 =====
-function handleLogin(e) {
+// ===== 로그인 처리 (Supabase 비동기) =====
+async function handleLogin(e) {
   e.preventDefault();
 
-  const id = document.getElementById('user-id').value.trim();
-  const pw = document.getElementById('user-pw').value.trim();
-  const errorBox = document.getElementById('login-error');
-  const errorText = document.getElementById('error-text');
-  const btnText = document.getElementById('btn-text');
+  const id         = document.getElementById('user-id').value.trim();
+  const pw         = document.getElementById('user-pw').value.trim();
+  const btnText    = document.getElementById('btn-text');
   const btnSpinner = document.getElementById('btn-spinner');
+  const errorBox   = document.getElementById('login-error');
 
-  // 유효성 검사
+  // 빈 값 체크
   if (!id) {
     showError('아이디를 입력해주세요.');
     document.getElementById('user-id').focus();
@@ -39,28 +38,31 @@ function handleLogin(e) {
   btnSpinner.classList.remove('hidden');
   errorBox.classList.add('hidden');
 
-  // 로그인 처리 (데모: admin/1234 또는 임의 입력 허용)
-  setTimeout(() => {
+  try {
+    // Supabase 비동기 인증 (auth.js의 authLoginAsync)
+    const result = await authLoginAsync(id, pw);
+
     btnText.classList.remove('hidden');
     btnSpinner.classList.add('hidden');
 
-    // 데모 계정 허용 (실제 구현 시 API 연동)
-    if (id && pw) {
-      // 로그인 상태 저장
+    if (result.success) {
       const remember = document.getElementById('remember-me').checked;
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem('sw_user', JSON.stringify({ id, name: id === 'admin' ? '관리자' : id + ' 님', role: id === 'admin' ? '관리자' : '일반 직원' }));
-
-      // 대시보드로 이동
+      const storage  = remember ? localStorage : sessionStorage;
+      storage.setItem('sw_user', JSON.stringify(result.user));
       window.location.href = 'dashboard.html';
     } else {
-      showError('아이디 또는 비밀번호를 확인해주세요.');
+      showError(result.error || '아이디 또는 비밀번호를 확인해주세요.');
     }
-  }, 900);
+  } catch (err) {
+    btnText.classList.remove('hidden');
+    btnSpinner.classList.add('hidden');
+    showError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    console.error('[handleLogin]', err);
+  }
 }
 
 function showError(msg) {
-  const errorBox = document.getElementById('login-error');
+  const errorBox  = document.getElementById('login-error');
   const errorText = document.getElementById('error-text');
   errorText.textContent = msg;
   errorBox.classList.remove('hidden');
@@ -84,10 +86,10 @@ const style = document.createElement('style');
 style.textContent = `
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-8px); }
-    40% { transform: translateX(8px); }
-    60% { transform: translateX(-5px); }
-    80% { transform: translateX(5px); }
+    20%       { transform: translateX(-8px); }
+    40%       { transform: translateX(8px); }
+    60%       { transform: translateX(-5px); }
+    80%       { transform: translateX(5px); }
   }
 `;
 document.head.appendChild(style);
