@@ -43,8 +43,13 @@ CREATE TABLE IF NOT EXISTS public.popup_settings (
   date_start   TEXT                 DEFAULT '',
   date_end     TEXT                 DEFAULT '',
   image_url    TEXT                 DEFAULT '',
+  target_dept  TEXT                 DEFAULT 'all',      -- 'all' | 부서명 (ex: '인천TC')
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- target_dept 컬럼이 없는 기존 테이블에 컬럼 추가 (이미 있으면 무시)
+ALTER TABLE public.popup_settings
+  ADD COLUMN IF NOT EXISTS target_dept TEXT DEFAULT 'all';
 
 -- ================================================================
 -- RLS(Row Level Security) 설정

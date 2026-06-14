@@ -18,7 +18,7 @@
 <!-- ===================== 상단 헤더 ===================== -->
 <header class="site-header">
   <div class="header-left">
-    <div class="header-logo">
+    <div class="header-logo" onclick="switchTab('main')" title="홈으로" style="cursor:pointer;">
       <div class="logo-shield">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 230" width="46" height="53" style="display:block;">
             <!-- 메달 외곽 링 -->
@@ -278,6 +278,19 @@
           <div class="form-row" style="margin-bottom:14px">
             <label class="popup-field-label">본문 내용 <span style="color:#ef4444">*</span></label>
             <textarea id="popup-body-input" class="write-textarea" style="min-height:140px" placeholder="팝업에 표시할 내용을 입력하세요..."></textarea>
+          </div>
+
+          <!-- 대상 부서 선택 -->
+          <div class="form-row" style="margin-bottom:14px">
+            <label class="popup-field-label"><i class="fas fa-building" style="color:#3b82f6;margin-right:4px;"></i>표시 대상 부서</label>
+            <select id="popup-target-dept" class="write-input popup-select">
+              <option value="all">📢 전체 (모든 직원)</option>
+              <option value="인천TC">인천TC</option>
+              <option value="부서 관리자">부서 관리자</option>
+            </select>
+            <p style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">
+              <i class="fas fa-info-circle"></i> 특정 부서 선택 시 해당 소속 직원에게만 팝업이 표시됩니다.
+            </p>
           </div>
 
           <!-- 2열: 버튼 텍스트 / 표시 기간 -->
@@ -704,13 +717,17 @@
   </div>
 </div>
 
-<!-- 알림 드롭다운 -->
+<!-- 알림(시청내역) 드롭다운 -->
 <div class="notif-dropdown hidden" id="notif-dropdown">
   <div class="notif-header">
-    <span>알림</span>
-    <button onclick="clearNotifications()" style="font-size:0.75rem;color:#3b82f6">모두 읽음</button>
+    <span><i class="fas fa-play-circle" style="color:#3b82f6;margin-right:6px;"></i>내 시청 내역</span>
+    <button onclick="closeWatchDropdown()" style="font-size:0.75rem;color:#94a3b8;">✕ 닫기</button>
   </div>
-  <ul class="notif-list" id="notif-list"></ul>
+  <div class="watch-hist-list" id="watch-hist-list">
+    <div class="watch-hist-loading">
+      <i class="fas fa-spinner fa-spin"></i> 불러오는 중...
+    </div>
+  </div>
 </div>
 
 <!-- 토스트 -->

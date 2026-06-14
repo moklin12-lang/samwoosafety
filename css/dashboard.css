@@ -533,25 +533,110 @@ ul { list-style: none; }
 }
 .btn-edit-post:hover { background: #eff6ff; }
 
-/* ===== 알림 드롭다운 ===== */
+/* ===== 시청 내역 드롭다운 ===== */
 .notif-dropdown {
   position: fixed;
-  top: 68px; right: 80px;
-  width: 300px;
+  top: 60px; right: 76px;
+  width: 340px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
   z-index: 400;
   overflow: hidden;
   animation: slideUp 0.2s ease;
   border: 1px solid #e2e8f0;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
 }
 .notif-dropdown.hidden { display: none; }
-.notif-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; font-weight: 600; }
-.notif-list { max-height: 280px; overflow-y: auto; }
-.notif-list li { padding: 12px 16px; border-bottom: 1px solid #f8fafc; font-size: 0.82rem; color: #334155; display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
-.notif-list li:hover { background: #f8fafc; }
-.notif-list li .notif-dot { width: 7px; height: 7px; border-radius: 50%; background: #3d5afe; margin-top: 5px; flex-shrink: 0; }
+
+/* 헤더 */
+.notif-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.88rem; font-weight: 700;
+  background: #f8faff;
+  flex-shrink: 0;
+}
+
+/* 시청 내역 리스트 컨테이너 */
+.watch-hist-list {
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(80vh - 50px);
+}
+
+/* 로딩 / 비어있음 */
+.watch-hist-loading,
+.watch-hist-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.watch-hist-empty i { font-size: 2rem; color: #cbd5e1; }
+
+/* 날짜 그룹 */
+.watch-hist-date-group {
+  border-bottom: 1px solid #f1f5f9;
+}
+.watch-hist-date-label {
+  padding: 7px 14px 5px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #3b82f6;
+  background: #f0f7ff;
+  display: flex; align-items: center; gap: 5px;
+  letter-spacing: 0.02em;
+}
+
+/* 시청 내역 아이템 */
+.watch-hist-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid #f8fafc;
+  transition: background 0.15s;
+}
+.watch-hist-item:hover { background: #f8faff; }
+.watch-hist-item:last-child { border-bottom: none; }
+
+/* 아이콘 */
+.watch-hist-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: #dbeafe; color: #2563eb;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; flex-shrink: 0; margin-top: 1px;
+}
+.watch-hist-icon.yt { background: #fee2e2; color: #dc2626; }
+
+/* 텍스트 영역 */
+.watch-hist-info { flex: 1; min-width: 0; }
+.watch-hist-title {
+  font-size: 0.82rem; font-weight: 600; color: #1e293b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.watch-hist-meta {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+}
+.watch-hist-tag {
+  font-size: 0.68rem; background: #e0f2fe; color: #0369a1;
+  padding: 1px 6px; border-radius: 4px; font-weight: 600; white-space: nowrap;
+}
+.watch-hist-vidname {
+  font-size: 0.72rem; color: #94a3b8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* 시간 */
+.watch-hist-time {
+  font-size: 0.75rem; font-weight: 700; color: #64748b;
+  white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+}
 
 /* ===== 토스트 ===== */
 .toast {

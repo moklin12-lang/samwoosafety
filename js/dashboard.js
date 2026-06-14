@@ -71,7 +71,7 @@ async function openMyPage() {
   // 시청 횟수 로드 (일반 사용자만)
   if (!currentUser.isAdmin) {
     try {
-      const hist = await getWatchHistory(currentUser.id);
+      const hist = await sbGetWatchHistory(currentUser.id);
       const countEl = document.getElementById('mypage-watch-count');
       if (countEl) countEl.textContent = hist.length;
     } catch(e) {
@@ -1469,40 +1469,126 @@ window.addEventListener('popstate', (e) => {
   history.pushState({ page: 'dashboard' }, '');
 });
 
-// ===== 알림 =====
+// ===== 시청 내역 드롭다운 =====
+
+/** 알림(시청내역) 드롭다운 열기/닫기 토글 */
 function toggleNotifications() {
   const dd = document.getElementById('notif-dropdown');
+  const isHidden = dd.classList.contains('hidden');
   dd.classList.toggle('hidden');
-  if (!dd.classList.contains('hidden')) renderNotifications();
-}
-function renderNotifications() {
-  const ul = document.getElementById('notif-list');
-  if (!notifications.length) {
-    ul.innerHTML = '<li style="text-align:center;color:#94a3b8;padding:20px">알림이 없습니다</li>';
-    return;
+  if (isHidden) {
+    // 열릴 때 시청 내역 로드
+    loadWatchHistoryDropdown();
   }
-  ul.innerHTML = notifications.map(n => `
-    <li onclick="readNotification(${n.id})">
-      ${!n.read ? '<span class="notif-dot"></span>' : '<span style="width:7px;flex-shrink:0"></span>'}
-      ${n.text}
-    </li>`).join('');
 }
-function readNotification(id) {
-  const n = notifications.find(x => x.id === id);
-  if (n) n.read = true;
-  updateNotifBadge();
-  renderNotifications();
+
+/** 드롭다운 닫기 */
+function closeWatchDropdown() {
+  document.getElementById('notif-dropdown').classList.add('hidden');
 }
-function clearNotifications() {
-  notifications.forEach(n => n.read = true);
-  updateNotifBadge();
-  renderNotifications();
+
+/** Supabase에서 시청 내역 로드 후 렌더 */
+async function loadWatchHistoryDropdown() {
+  const container = document.getElementById('watch-hist-list');
+  if (!container) return;
+
+  // 로딩 표시
+  container.innerHTML = `<div class="watch-hist-loading"><i class="fas fa-spinner fa-spin"></i> 불러오는 중...</div>`;
+
+  try {
+    // 본인 시청 내역 조회 (최신 50개)
+    const list = await sbGetWatchHistory(currentUser.id);
+
+    if (!list || list.length === 0) {
+      container.innerHTML = `
+        <div class="watch-hist-empty">
+          <i class="fas fa-play-circle"></i>
+          <p>아직 시청한 동영상이 없습니다</p>
+        </div>`;
+
+      // 배지 0으로
+      updateNotifBadge(0);
+      return;
+    }
+
+    // 날짜별 그룹핑
+    const grouped = {};
+    list.forEach(h => {
+      const d = new Date(h.watched_at);
+      const dateKey = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(h);
+    });
+
+    let html = '';
+    Object.keys(grouped).forEach(dateKey => {
+      html += `<div class="watch-hist-date-group">
+        <div class="watch-hist-date-label"><i class="fas fa-calendar-day"></i> ${dateKey}</div>`;
+
+      grouped[dateKey].forEach(h => {
+        const d    = new Date(h.watched_at);
+        const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        const tabLabels = {
+          main:'공지', newcomer:'신규입사자', appliance:'가전안전',
+          aircon:'에어컨안전', warehouse:'창고안전', regulation:'안전규정',
+          'major-accident':'중대재해알림', violation:'안전미준수사례'
+        };
+        const tabLabel = tabLabels[h.post_tab] || h.post_tab || '';
+        const vidName  = (h.vid_name || '').replace(/KakaoTalk_\d+_\d+/g, '카카오톡영상') || '동영상';
+        const isYt     = h.vid_type === 'youtube';
+
+        html += `
+          <div class="watch-hist-item">
+            <div class="watch-hist-icon ${isYt ? 'yt' : ''}">
+              <i class="fas ${isYt ? 'fa-youtube' : 'fa-film'}"></i>
+            </div>
+            <div class="watch-hist-info">
+              <div class="watch-hist-title">${h.post_title || '(제목 없음)'}</div>
+              <div class="watch-hist-meta">
+                ${tabLabel ? `<span class="watch-hist-tag">${tabLabel}</span>` : ''}
+                <span class="watch-hist-vidname" title="${h.vid_name || ''}">${vidName}</span>
+              </div>
+            </div>
+            <div class="watch-hist-time">${time}</div>
+          </div>`;
+      });
+
+      html += `</div>`;
+    });
+
+    container.innerHTML = html;
+
+    // 배지: 오늘 시청 개수 표시
+    const todayStr = new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit'})
+      .replace(/\. /g,'.').replace('.','').replace(/\.$/, '');
+    const todayKey = (() => {
+      const n = new Date();
+      return `${n.getFullYear()}.${String(n.getMonth()+1).padStart(2,'0')}.${String(n.getDate()).padStart(2,'0')}`;
+    })();
+    const todayCnt = (grouped[todayKey] || []).length;
+    updateNotifBadge(todayCnt);
+
+  } catch(e) {
+    console.error('[시청내역] 로드 실패:', e);
+    container.innerHTML = `<div class="watch-hist-empty"><i class="fas fa-exclamation-circle"></i><p>불러오기 실패</p></div>`;
+  }
 }
-function updateNotifBadge() {
-  const cnt = notifications.filter(n => !n.read).length;
+
+/** 배지 숫자 업데이트 */
+function updateNotifBadge(cnt) {
   const badge = document.getElementById('notif-count');
-  if (badge) { badge.textContent = cnt; badge.style.display = cnt ? 'flex' : 'none'; }
+  if (!badge) return;
+  if (cnt === undefined) {
+    // 인자 없이 호출 시 기존 notifications 배열 기준 (구형 호환)
+    cnt = notifications.filter(n => !n.read).length;
+  }
+  badge.textContent = cnt;
+  badge.style.display = cnt > 0 ? 'flex' : 'none';
 }
+
+// 구형 호환용 (기존 코드에서 호출할 수 있으므로 유지)
+function clearNotifications() { closeWatchDropdown(); }
+function renderNotifications() { loadWatchHistoryDropdown(); }
 
 // ===== 토스트 =====
 function showToast(msg, duration) {
@@ -1613,6 +1699,10 @@ async function loadPopupEditor() {
   document.getElementById('popup-skip-option').value   = s.skipOption;
   document.getElementById('popup-date-start').value    = s.dateStart;
   document.getElementById('popup-date-end').value      = s.dateEnd;
+
+  // 대상 부서 복원
+  const deptSel = document.getElementById('popup-target-dept');
+  if (deptSel) deptSel.value = s.targetDept || 'all';
 
   // 유형 라디오
   const radio = document.querySelector(`input[name="popup-type"][value="${s.type}"]`);
@@ -1799,7 +1889,19 @@ async function checkAndShowPopup() {
       return;
     }
 
-    console.log('[Popup] ✅ 팝업 표시!');
+    // ── 부서 필터링 ──
+    // targetDept === 'all' 이면 전체 표시
+    // 특정 부서명이면 현재 로그인 사용자의 dept와 일치할 때만 표시
+    const targetDept = s.targetDept || 'all';
+    if (targetDept !== 'all') {
+      const userDept = currentUser.dept || '';
+      if (userDept !== targetDept) {
+        console.log(`[Popup] 대상 부서(${targetDept}) ≠ 사용자 부서(${userDept}) → 표시 안 함`);
+        return;
+      }
+    }
+
+    console.log('[Popup] ✅ 팝업 표시! (대상 부서:', targetDept, ')');
     _showSitePopup(s, false);
   } catch(e) {
     console.error('[Popup] checkAndShowPopup 오류:', e);
@@ -2735,7 +2837,24 @@ async function downloadWatchExcel() {
 document.addEventListener('DOMContentLoaded', () => {
   applyUser();
   switchTab('main');
-  updateNotifBadge();
+  updateNotifBadge(0); // 초기값 0, 로드 후 갱신
+
+  // 오늘 시청 개수로 배지 초기 세팅 (일반 사용자만)
+  if (!currentUser.isAdmin) {
+    sbGetWatchHistory(currentUser.id).then(list => {
+      if (!list || !list.length) return;
+      const todayKey = (() => {
+        const n = new Date();
+        return `${n.getFullYear()}.${String(n.getMonth()+1).padStart(2,'0')}.${String(n.getDate()).padStart(2,'0')}`;
+      })();
+      const todayCnt = list.filter(h => {
+        const d = new Date(h.watched_at);
+        const dk = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+        return dk === todayKey;
+      }).length;
+      updateNotifBadge(todayCnt);
+    }).catch(() => {});
+  }
 
   // ── 앱 진입 시 기본 히스토리 상태 설정 ──
   // 뒤로가기로 로그인 페이지로 나가지 않도록 현재 상태를 replace
