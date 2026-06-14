@@ -783,7 +783,7 @@ ul { list-style: none; }
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
-  background: #111;
+  background: #1a1a1a;          /* 완전 검정 대신 짙은 회색 — 로딩 중 티 덜 남 */
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 .detail-video-wrap video {
@@ -792,8 +792,10 @@ ul { list-style: none; }
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;     /* 원본 비율 유지 */
-  background: #111;
+  object-fit: contain;          /* 원본 비율 유지 */
+  background: transparent;      /* 로드 전 검정 배경 제거 */
+  transition: opacity 0.2s ease;/* opacity 페이드인 부드럽게 */
+  will-change: opacity;         /* GPU 레이어 분리 — 리페인트 비용 최소화 */
 }
 /* 동영상 아이템 외부 컨테이너 (wrap + label을 함께 묶음) */
 .detail-video-item {

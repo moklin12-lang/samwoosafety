@@ -552,14 +552,19 @@ function showPostDetail(post) {
                         webm:'video/webm', ogg:'video/ogg',
                         avi:'video/x-msvideo', mkv:'video/x-matroska' };
       const mimeType = mimeMap[ext] || 'video/mp4';
+      const vidId = `vid-${post.id}-${i}`;
       return `
         <div class="detail-video-item">
           <div class="detail-video-wrap">
-            <video controls playsinline preload="metadata"
+            <video id="${vidId}"
+              controls playsinline
+              preload="auto"
+              crossorigin="anonymous"
+              data-src="${videoSrc}"
+              data-mime="${mimeType}"
               data-post-id="${post.id}"
               data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
               data-vid-type="upload">
-              <source src="${videoSrc}" type="${mimeType}">
               브라우저가 동영상을 지원하지 않습니다.
             </video>
           </div>
@@ -621,18 +626,47 @@ function showPostDetail(post) {
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
 
-  // ── 비디오 로드 후 크기 재계산 (검은화면 방지) ──
+  // ── 비디오 src 직접 주입 + 검은화면 방지 ──
   setTimeout(() => {
-    document.querySelectorAll('#detail-body video').forEach(vid => {
-      // loadedmetadata 이벤트: 영상 크기 정보 로드 완료 시 강제 리페인트
-      vid.addEventListener('loadedmetadata', function() {
+    document.querySelectorAll('#detail-body video[data-src]').forEach(vid => {
+      const src      = vid.dataset.src;
+      const mimeType = vid.dataset.mime || 'video/mp4';
+      if (!src) return;
+
+      // ① src를 직접 video 태그에 주입 (crossorigin 우선 세팅 후 src 할당)
+      //    <source> 방식은 일부 브라우저에서 Range 헤더를 보내지 않아 검은화면 발생
+      vid.src  = src;
+      vid.type = mimeType;   // 비표준이지만 힌트 제공
+
+      // ② loadedmetadata: 영상 메타 로드 → wrap 리페인트로 검은화면 해소
+      vid.addEventListener('loadedmetadata', function onMeta() {
+        vid.removeEventListener('loadedmetadata', onMeta);
         const wrap = vid.closest('.detail-video-wrap');
         if (wrap) {
-          wrap.style.display = 'none';
-          requestAnimationFrame(() => { wrap.style.display = ''; });
+          // display none/block 사이클로 GPU 레이어 강제 재생성
+          wrap.style.visibility = 'hidden';
+          requestAnimationFrame(() => {
+            wrap.style.visibility = '';
+            vid.style.opacity = '0';
+            requestAnimationFrame(() => { vid.style.opacity = '1'; });
+          });
         }
       });
-      // 이미 로드된 경우를 대비해 load() 명시적 호출
+
+      // ③ 에러 시 <source> 폴백으로 재시도 (crossorigin 없이)
+      vid.addEventListener('error', function onErr() {
+        vid.removeEventListener('error', onErr);
+        console.warn('[video] src 직접 로드 실패, source 폴백 시도:', src);
+        vid.removeAttribute('crossorigin');
+        vid.removeAttribute('src');
+        const s = document.createElement('source');
+        s.src  = src;
+        s.type = mimeType;
+        vid.appendChild(s);
+        vid.load();
+      }, true);
+
+      // ④ 명시적 load() 호출 (src 변경 후 필수)
       vid.load();
     });
   }, 0);
