@@ -180,94 +180,172 @@ function showFindIdResult(user) {
 // ===================================================================
 
 let _verifiedUserId = null; // 본인확인 완료된 사용자 ID
+let _verifyBusy     = false; // 중복 제출 방지
+let _resetBusy      = false; // 중복 제출 방지
+
+// ── 버튼 로딩 상태 헬퍼 ──────────────────────────────────────────
+function _setBtnLoading(btnEl, loading, defaultHTML) {
+  if (!btnEl) return;
+  btnEl.disabled = loading;
+  btnEl.innerHTML = loading
+    ? '<i class="fas fa-spinner fa-spin"></i> 처리 중...'
+    : defaultHTML;
+}
 
 // STEP 1: 본인 확인 (Supabase)
 async function verifyIdentity(e) {
   e.preventDefault();
+  if (_verifyBusy) return;
+
   const id   = document.getElementById('fp-id').value.trim();
   const name = document.getElementById('fp-name').value.trim();
   const tel  = document.getElementById('fp-tel').value.trim();
   let valid  = true;
 
-  if (!id) { setMsg('msg-fp-id', '아이디를 입력해주세요.', 'err'); setInputState('fp-id','error'); valid = false; }
-  else { setMsg('msg-fp-id', '', ''); setInputState('fp-id','success'); }
+  // ── 유효성 검사 ──
+  if (!id) {
+    setMsg('msg-fp-id', '아이디를 입력해주세요.', 'err');
+    setInputState('fp-id', 'error');
+    valid = false;
+  } else {
+    setMsg('msg-fp-id', '', '');
+    setInputState('fp-id', 'success');
+  }
 
-  if (!name) { setMsg('msg-fp-name', '이름을 입력해주세요.', 'err'); setInputState('fp-name','error'); valid = false; }
-  else { setMsg('msg-fp-name', '', ''); setInputState('fp-name','success'); }
+  if (!name) {
+    setMsg('msg-fp-name', '이름을 입력해주세요.', 'err');
+    setInputState('fp-name', 'error');
+    valid = false;
+  } else {
+    setMsg('msg-fp-name', '', '');
+    setInputState('fp-name', 'success');
+  }
 
   const telReg = /^01[0-9]-\d{3,4}-\d{4}$/;
-  if (!tel) { setMsg('msg-fp-tel', '전화번호를 입력해주세요.', 'err'); setInputState('fp-tel','error'); valid = false; }
-  else if (!telReg.test(tel)) { setMsg('msg-fp-tel', '올바른 형식으로 입력해주세요.', 'err'); setInputState('fp-tel','error'); valid = false; }
-  else { setMsg('msg-fp-tel', '', ''); setInputState('fp-tel','success'); }
+  if (!tel) {
+    setMsg('msg-fp-tel', '전화번호를 입력해주세요.', 'err');
+    setInputState('fp-tel', 'error');
+    valid = false;
+  } else if (!telReg.test(tel)) {
+    setMsg('msg-fp-tel', '올바른 형식으로 입력해주세요. (예: 010-1234-5678)', 'err');
+    setInputState('fp-tel', 'error');
+    valid = false;
+  } else {
+    setMsg('msg-fp-tel', '', '');
+    setInputState('fp-tel', 'success');
+  }
 
   if (!valid) return;
+
+  // ── Supabase 본인 확인 ──
+  const btn = e.target.querySelector('button[type="submit"]');
+  _verifyBusy = true;
+  _setBtnLoading(btn, true, '');
 
   try {
     const found = await sbVerifyMember(id, name, tel);
 
     if (!found) {
-      showToast('입력하신 정보와 일치하는 계정이 없습니다.');
-      setMsg('msg-fp-id', '아이디·이름·전화번호를 다시 확인해주세요.', 'err');
-      setInputState('fp-id','error');
+      // 일치 계정 없음
+      setMsg('msg-fp-id',   '아이디·이름·전화번호를 다시 확인해주세요.', 'err');
+      setMsg('msg-fp-name', '가입 시 등록한 이름과 일치해야 합니다.', 'err');
+      setMsg('msg-fp-tel',  '가입 시 등록한 전화번호와 일치해야 합니다.', 'err');
+      setInputState('fp-id',   'error');
+      setInputState('fp-name', 'error');
+      setInputState('fp-tel',  'error');
+      showToast('⚠️ 입력하신 정보와 일치하는 계정이 없습니다.');
       return;
     }
 
-    _verifiedUserId = found.id;
+    // 본인확인 성공
+    _verifiedUserId = found.id;  // members 테이블의 id (텍스트 아이디)
     const displayEl = document.getElementById('verified-id-display');
     if (displayEl) displayEl.textContent = found.name;
 
     goToStep(2);
   } catch (err) {
     console.error('[verifyIdentity]', err);
-    showToast('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    showToast('🚨 서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+  } finally {
+    _verifyBusy = false;
+    _setBtnLoading(btn, false, '<i class="fas fa-check-circle"></i> 본인 확인');
   }
 }
 
-// STEP 2: 비밀번호 재설정 (Supabase UPDATE)
+// STEP 2: 비밀번호 재설정 (Supabase PATCH UPDATE)
 async function resetPassword(e) {
   e.preventDefault();
+  if (_resetBusy) return;
+
   const pw  = document.getElementById('fp-new-pw').value;
   const pw2 = document.getElementById('fp-new-pw2').value;
   let valid = true;
 
+  // ── 유효성 검사 ──
   const pwReg = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
   if (!pw) {
     setMsg('msg-fp-new-pw', '새 비밀번호를 입력해주세요.', 'err');
-    setInputState('fp-new-pw','error');
+    setInputState('fp-new-pw', 'error');
     valid = false;
   } else if (!pwReg.test(pw)) {
     setMsg('msg-fp-new-pw', '영문+숫자 조합 8자 이상 입력해주세요.', 'err');
-    setInputState('fp-new-pw','error');
+    setInputState('fp-new-pw', 'error');
     valid = false;
   } else {
-    setMsg('msg-fp-new-pw', '사용 가능한 비밀번호입니다.', 'ok');
-    setInputState('fp-new-pw','success');
+    setMsg('msg-fp-new-pw', '✓ 사용 가능한 비밀번호입니다.', 'ok');
+    setInputState('fp-new-pw', 'success');
   }
 
   if (!pw2) {
     setMsg('msg-fp-new-pw2', '비밀번호를 다시 입력해주세요.', 'err');
-    setInputState('fp-new-pw2','error');
+    setInputState('fp-new-pw2', 'error');
     valid = false;
   } else if (pw !== pw2) {
     setMsg('msg-fp-new-pw2', '비밀번호가 일치하지 않습니다.', 'err');
-    setInputState('fp-new-pw2','error');
+    setInputState('fp-new-pw2', 'error');
     valid = false;
   } else {
-    setMsg('msg-fp-new-pw2', '비밀번호가 일치합니다.', 'ok');
-    setInputState('fp-new-pw2','success');
+    setMsg('msg-fp-new-pw2', '✓ 비밀번호가 일치합니다.', 'ok');
+    setInputState('fp-new-pw2', 'success');
   }
 
   if (!valid) return;
 
+  // ── 세션 만료 방지 ──
+  if (!_verifiedUserId) {
+    showToast('⚠️ 본인 확인이 필요합니다. 처음부터 다시 시도해주세요.');
+    goToStep(1);
+    return;
+  }
+
+  // ── Supabase UPDATE (members.pw 컬럼 업데이트) ──
+  const btn = e.target.querySelector('button[type="submit"]');
+  _resetBusy = true;
+  _setBtnLoading(btn, true, '');
+
   try {
-    // Supabase UPDATE
-    await sbResetPassword(_verifiedUserId, pw);
+    const result = await sbResetPassword(_verifiedUserId, pw);
+    console.log('[resetPassword] 완료:', _verifiedUserId, result);
+
+    // 성공 → STEP 3
     goToStep(3);
     const bl = document.getElementById('pw-bottom-links');
     if (bl) bl.style.display = 'none';
+
+    // 세션 변수 초기화
+    _verifiedUserId = null;
   } catch (err) {
     console.error('[resetPassword]', err);
-    showToast('비밀번호 변경 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    const msg = err.message || '';
+    if (msg.includes('404') || msg.includes('no rows')) {
+      showToast('⚠️ 계정을 찾을 수 없습니다. 처음부터 다시 시도해주세요.');
+      goToStep(1);
+    } else {
+      showToast('🚨 비밀번호 변경 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  } finally {
+    _resetBusy = false;
+    _setBtnLoading(btn, false, '<i class="fas fa-lock"></i> 비밀번호 변경');
   }
 }
 

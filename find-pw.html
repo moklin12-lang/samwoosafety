@@ -104,10 +104,15 @@
 
       <!-- STEP 1: 본인 확인 -->
       <div id="pw-step1" class="find-panel">
+        <p style="font-size:0.82rem;color:rgba(255,255,255,0.55);margin-bottom:16px;line-height:1.6;">
+          <i class="fas fa-info-circle" style="color:#60a5fa;margin-right:5px;"></i>
+          가입 시 등록한 아이디·이름·전화번호를 입력하면 비밀번호를 재설정할 수 있습니다.
+        </p>
         <form onsubmit="verifyIdentity(event)" novalidate>
           <div class="reg-field" style="margin-bottom:14px">
             <label class="reg-label" for="fp-id">아이디 <span class="req">*</span></label>
-            <input type="text" id="fp-id" class="reg-input" placeholder="가입한 아이디 입력" autocomplete="username" />
+            <input type="text" id="fp-id" class="reg-input" placeholder="가입한 아이디 입력"
+                   autocomplete="username" autofocus />
             <span class="field-msg" id="msg-fp-id"></span>
           </div>
           <div class="reg-field" style="margin-bottom:14px">
@@ -120,7 +125,7 @@
             <input type="tel" id="fp-tel" class="reg-input" placeholder="010-0000-0000" maxlength="13" />
             <span class="field-msg" id="msg-fp-tel"></span>
           </div>
-          <button type="submit" class="reg-btn">
+          <button type="submit" class="reg-btn" id="btn-verify">
             <i class="fas fa-check-circle"></i> 본인 확인
           </button>
         </form>
