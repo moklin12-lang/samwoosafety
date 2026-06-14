@@ -778,24 +778,22 @@ ul { list-style: none; }
 .detail-video-wrap {
   position: relative;
   width: 100%;
-  /* 컨테이너에 16:9 비율 고정 → video 높이 0 문제 원천 방지 */
-  aspect-ratio: 16 / 9;
+  max-width: 640px;        /* 최대 너비 제한 — 너무 크게 나오는 문제 방지 */
+  aspect-ratio: 16 / 9;   /* 16:9 비율 고정 */
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
-  background: #000;
+  background: #111;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 .detail-video-wrap video {
-  /* 컨테이너 100% 채우기 — aspect-ratio는 wrap이 담당 */
   position: absolute;
   top: 0; left: 0;
   width: 100%;
   height: 100%;
   display: block;
-  background: #000;
-  /* object-fit: contain → 영상 비율 유지 + 여백은 검정으로 (검은화면 X, 납작 X) */
-  object-fit: contain;
+  object-fit: contain;     /* 원본 비율 유지 */
+  background: #111;
 }
 /* 동영상 아이템 외부 컨테이너 (wrap + label을 함께 묶음) */
 .detail-video-item {
@@ -803,6 +801,7 @@ ul { list-style: none; }
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  max-width: 640px;        /* item도 동일하게 최대 너비 제한 */
 }
 /* wrap에서 box-shadow/border-radius/overflow 제거 (item이 담당) */
 .detail-video-item .detail-video-wrap {
@@ -810,6 +809,7 @@ ul { list-style: none; }
   box-shadow: none;
   overflow: hidden;
   margin-bottom: 0;
+  max-width: 100%;         /* item 안에서는 100% */
 }
 .detail-video-label {
   padding: 7px 14px;

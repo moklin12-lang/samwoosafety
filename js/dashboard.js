@@ -546,14 +546,20 @@ function showPostDetail(post) {
       // storageURL(새 방식) 또는 blobURL(구형) 모두 지원
       const videoSrc = v.storageURL || v.blobURL || '';
       if (!videoSrc) return ''; // URL 없으면 건너뜀
+      // 확장자로 MIME 타입 결정
+      const ext = (v.name||'').split('.').pop().toLowerCase();
+      const mimeMap = { mp4:'video/mp4', mov:'video/mp4', m4v:'video/mp4',
+                        webm:'video/webm', ogg:'video/ogg',
+                        avi:'video/x-msvideo', mkv:'video/x-matroska' };
+      const mimeType = mimeMap[ext] || 'video/mp4';
       return `
         <div class="detail-video-item">
           <div class="detail-video-wrap">
-            <video controls playsinline preload="auto"
-              src="${videoSrc}"
+            <video controls playsinline preload="metadata"
               data-post-id="${post.id}"
               data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
               data-vid-type="upload">
+              <source src="${videoSrc}" type="${mimeType}">
               브라우저가 동영상을 지원하지 않습니다.
             </video>
           </div>
@@ -614,6 +620,22 @@ function showPostDetail(post) {
   }
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
+
+  // ── 비디오 로드 후 크기 재계산 (검은화면 방지) ──
+  setTimeout(() => {
+    document.querySelectorAll('#detail-body video').forEach(vid => {
+      // loadedmetadata 이벤트: 영상 크기 정보 로드 완료 시 강제 리페인트
+      vid.addEventListener('loadedmetadata', function() {
+        const wrap = vid.closest('.detail-video-wrap');
+        if (wrap) {
+          wrap.style.display = 'none';
+          requestAnimationFrame(() => { wrap.style.display = ''; });
+        }
+      });
+      // 이미 로드된 경우를 대비해 load() 명시적 호출
+      vid.load();
+    });
+  }, 0);
 
   // ── 업로드 동영상 play 이벤트 → 시청 기록 저장 + 뒤로가기 제어 ──
   // setTimeout으로 DOM이 완전히 렌더된 뒤에 이벤트 바인딩
