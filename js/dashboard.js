@@ -435,7 +435,7 @@ function showPostDetail(post) {
       if (!videoSrc) return ''; // URL 없으면 건너뜀
       return `
         <div class="detail-video-wrap">
-          <video controls playsinline preload="metadata"
+          <video controls playsinline preload="auto"
             src="${videoSrc}"
             data-post-id="${post.id}"
             data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
@@ -501,31 +501,42 @@ function showPostDetail(post) {
   document.getElementById('detail-body').innerHTML = bodyHTML;
 
   // ── 업로드 동영상 play 이벤트 → 시청 기록 저장 + 뒤로가기 제어 ──
-  document.querySelectorAll('#detail-body video[data-post-id]').forEach(vid => {
-    // 재생 시작 시
-    vid.addEventListener('play', function() {
-      // 시청 기록 (최초 1회)
-      if (!vid.dataset.logged) {
-        vid.dataset.logged = '1';
-        recordVideoWatch(post, vid.dataset.vidName, vid.dataset.vidType);
-      }
-      // 뒤로가기 시 로그인으로 가지 않도록 히스토리 상태 추가
-      if (!history.state || !history.state.videoPlaying) {
-        history.pushState({ videoPlaying: true }, '');
-      }
+  // setTimeout으로 DOM이 완전히 렌더된 뒤에 이벤트 바인딩
+  setTimeout(() => {
+    document.querySelectorAll('#detail-body video[data-post-id]').forEach(vid => {
+      // 재생 시작 시
+      vid.addEventListener('play', function() {
+        // 시청 기록 (최초 1회)
+        if (!vid.dataset.logged) {
+          vid.dataset.logged = '1';
+          recordVideoWatch(post, vid.dataset.vidName, vid.dataset.vidType);
+        }
+        // 뒤로가기 시 로그인으로 가지 않도록 히스토리 상태 추가
+        // videoPlaying 상태가 없을 때만 pushState (중복 방지)
+        const curState = history.state || {};
+        if (!curState.videoPlaying) {
+          history.pushState({ videoPlaying: true, page: 'dashboard' }, '');
+        }
+      });
+      // 일시정지/종료 시 히스토리 상태 해제
+      vid.addEventListener('pause', function() {
+        if (history.state && history.state.videoPlaying) {
+          history.replaceState({ ...history.state, videoPlaying: false }, '');
+        }
+      });
+      vid.addEventListener('ended', function() {
+        if (history.state && history.state.videoPlaying) {
+          history.replaceState({ ...history.state, videoPlaying: false }, '');
+        }
+      });
+      // 에러 발생 시 콘솔 출력 (디버깅용)
+      vid.addEventListener('error', function() {
+        const err = vid.error;
+        console.warn('[Video Error] code:', err ? err.code : 'unknown',
+          'message:', err ? err.message : '', 'src:', vid.src);
+      });
     });
-    // 일시정지/종료 시 히스토리 상태 해제
-    vid.addEventListener('pause', function() {
-      if (history.state && history.state.videoPlaying) {
-        history.replaceState({ videoPlaying: false }, '');
-      }
-    });
-    vid.addEventListener('ended', function() {
-      if (history.state && history.state.videoPlaying) {
-        history.replaceState({ videoPlaying: false }, '');
-      }
-    });
-  });
+  }, 0);
 }
 
 // YouTube iframe 클릭 → 시청 기록 저장 (iframe은 play 이벤트 감지 불가)
