@@ -626,34 +626,58 @@ function showPostDetail(post) {
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
 
-  // ── 비디오 src 직접 주입 + 검은화면 방지 ──
+  // ── 비디오 src 직접 주입 + 세로영상 회전 보정 + 검은화면 방지 ──
   setTimeout(() => {
     document.querySelectorAll('#detail-body video[data-src]').forEach(vid => {
       const src      = vid.dataset.src;
       const mimeType = vid.dataset.mime || 'video/mp4';
       if (!src) return;
 
-      // ① src를 직접 video 태그에 주입 (crossorigin 우선 세팅 후 src 할당)
-      //    <source> 방식은 일부 브라우저에서 Range 헤더를 보내지 않아 검은화면 발생
+      // ① src 직접 주입
       vid.src  = src;
-      vid.type = mimeType;   // 비표준이지만 힌트 제공
+      vid.type = mimeType;
 
-      // ② loadedmetadata: 영상 메타 로드 → wrap 리페인트로 검은화면 해소
+      // ② loadedmetadata: 세로영상 회전 보정 + 검은화면 방지
       vid.addEventListener('loadedmetadata', function onMeta() {
         vid.removeEventListener('loadedmetadata', onMeta);
         const wrap = vid.closest('.detail-video-wrap');
-        if (wrap) {
-          // display none/block 사이클로 GPU 레이어 강제 재생성
-          wrap.style.visibility = 'hidden';
-          requestAnimationFrame(() => {
-            wrap.style.visibility = '';
-            vid.style.opacity = '0';
-            requestAnimationFrame(() => { vid.style.opacity = '1'; });
-          });
+        if (!wrap) return;
+
+        const vw = vid.videoWidth;
+        const vh = vid.videoHeight;
+        console.log(`[video] 해상도: ${vw}x${vh}`);
+
+        // 세로 영상 감지 (높이 > 너비 = 세로 촬영 or rotation 메타데이터로 뒤바뀐 경우)
+        if (vw > 0 && vh > 0) {
+          if (vh > vw) {
+            // ── 세로 영상: wrap을 세로 비율로 변경 ──
+            wrap.classList.add('portrait');
+            wrap.style.aspectRatio = `${vw} / ${vh}`;
+            wrap.style.maxWidth    = '360px';
+            wrap.style.maxHeight   = '70vh';
+            vid.style.objectFit    = 'contain';
+            // 부모 item도 너비 맞춤
+            const item = wrap.closest('.detail-video-item');
+            if (item) item.style.maxWidth = '360px';
+            console.log('[video] 세로 영상 감지 → 비율 보정:', vw, '×', vh);
+          } else {
+            // ── 가로 영상: 실제 비율로 aspect-ratio 세팅 ──
+            wrap.style.aspectRatio = `${vw} / ${vh}`;
+            vid.style.objectFit    = 'contain';
+            console.log('[video] 가로 영상:', vw, '×', vh);
+          }
         }
+
+        // GPU 레이어 강제 재생성 (검은화면 방지)
+        wrap.style.visibility = 'hidden';
+        requestAnimationFrame(() => {
+          wrap.style.visibility = '';
+          vid.style.opacity = '0';
+          requestAnimationFrame(() => { vid.style.opacity = '1'; });
+        });
       });
 
-      // ③ 에러 시 <source> 폴백으로 재시도 (crossorigin 없이)
+      // ③ 에러 시 crossorigin 제거 후 <source> 폴백 재시도
       vid.addEventListener('error', function onErr() {
         vid.removeEventListener('error', onErr);
         console.warn('[video] src 직접 로드 실패, source 폴백 시도:', src);
@@ -666,7 +690,7 @@ function showPostDetail(post) {
         vid.load();
       }, true);
 
-      // ④ 명시적 load() 호출 (src 변경 후 필수)
+      // ④ 명시적 load() 호출
       vid.load();
     });
   }, 0);

@@ -778,13 +778,19 @@ ul { list-style: none; }
 .detail-video-wrap {
   position: relative;
   width: 100%;
-  max-width: 640px;        /* 최대 너비 제한 — 너무 크게 나오는 문제 방지 */
-  aspect-ratio: 16 / 9;   /* 16:9 비율 고정 */
+  max-width: 640px;        /* 최대 너비 제한 */
+  aspect-ratio: 16 / 9;   /* 기본값: 가로 영상 16:9 (JS에서 세로 영상이면 덮어씀) */
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
-  background: #1a1a1a;          /* 완전 검정 대신 짙은 회색 — 로딩 중 티 덜 남 */
+  background: transparent;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+/* 세로 영상일 때 — JS가 aspect-ratio + max-height 를 동적으로 세팅 */
+.detail-video-wrap.portrait {
+  max-width: 360px;        /* 세로 영상은 너비를 좁게 */
+  aspect-ratio: 9 / 16;
+  max-height: 70vh;
 }
 .detail-video-wrap video {
   position: absolute;
@@ -792,10 +798,10 @@ ul { list-style: none; }
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;          /* 원본 비율 유지 */
+  object-fit: contain;          /* 원본 비율 유지 — 잘림 없이 레터박스 */
   background: transparent;      /* 로드 전 검정 배경 제거 */
-  transition: opacity 0.2s ease;/* opacity 페이드인 부드럽게 */
-  will-change: opacity;         /* GPU 레이어 분리 — 리페인트 비용 최소화 */
+  transition: opacity 0.2s ease;
+  will-change: opacity;
 }
 /* 동영상 아이템 외부 컨테이너 (wrap + label을 함께 묶음) */
 .detail-video-item {
