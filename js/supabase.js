@@ -2,7 +2,7 @@
 // ===== 삼우에프엔지 교육센터 — Supabase 클라이언트 & CRUD 헬퍼 =====
 // ===================================================================
 //
-// Supabase 프로젝트:  https://rpqmqsnzjchsmpsjffeb.supabase.co
+// Supabase 프로젝트:  https://omuchkxgzjtyhzadjozp.supabase.co
 //
 // 테이블 구조 (Supabase에서 미리 생성 필요):
 //
@@ -48,8 +48,8 @@
 //
 // ===================================================================
 
-const SUPABASE_URL    = 'https://rpqmqsnzjchsmpsjffeb.supabase.co';
-const SUPABASE_ANON   = 'sb_publishable_m3zw9KPHblvy_woKJSPFAg_W1S0hPzS';
+const SUPABASE_URL    = 'https://omuchkxgzjtyhzadjozp.supabase.co';
+const SUPABASE_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdWNoa3hnemp0eWh6YWRqb3pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNjkzOTgsImV4cCI6MjA5Njk0NTM5OH0.gVKIt79FdqmeHGwqzdFTLFAhG_OjqQurOYSb5v1FCII';
 
 // REST API 기본 주소
 const SB_REST  = `${SUPABASE_URL}/rest/v1`;
