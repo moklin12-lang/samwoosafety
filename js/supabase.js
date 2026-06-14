@@ -386,7 +386,7 @@ async function sbUploadVideo(file, postId) {
 
   console.log('[sbUploadVideo] 업로드 시작:', file.name, _formatFileSize(file.size), '→', path, 'type:', contentType);
 
-  const uploadRes = await fetch(`${SB_STORAGE}/object/VIDEO/${path}`, {
+  const uploadRes = await fetch(`${SB_STORAGE}/object/video/${path}`, {
     method: 'POST',
     headers: {
       'apikey':        SUPABASE_ANON,
@@ -403,9 +403,9 @@ async function sbUploadVideo(file, postId) {
 
     // 상태 코드별 친절한 안내
     if (uploadRes.status === 400) {
-      throw new Error('버킷이 존재하지 않거나 파일 형식이 잘못되었습니다. (VIDEO 버킷 확인 필요)');
+      throw new Error('버킷이 존재하지 않거나 파일 형식이 잘못되었습니다. (video 버킷 확인 필요)');
     } else if (uploadRes.status === 403) {
-      throw new Error('Storage 업로드 권한이 없습니다. Supabase Storage → VIDEO 버킷 → Policies에서 INSERT 정책을 추가해 주세요.');
+      throw new Error('Storage 업로드 권한이 없습니다. Supabase Storage → video 버킷 → Policies에서 INSERT 정책을 추가해 주세요.');
     } else if (uploadRes.status === 404) {
       throw new Error('"videos" 버킷이 없습니다. Supabase Storage에서 버킷을 먼저 생성해 주세요.');
     } else {
@@ -414,7 +414,7 @@ async function sbUploadVideo(file, postId) {
   }
 
   // 공개 URL 반환
-  const publicURL = `${SB_STORAGE}/object/public/VIDEO/${path}`;
+  const publicURL = `${SB_STORAGE}/object/public/video/${path}`;
   console.log('[sbUploadVideo] 성공:', publicURL);
   return publicURL;
 }
@@ -434,12 +434,12 @@ function _formatFileSize(bytes) {
 async function sbDeleteVideo(url) {
   try {
     // URL에서 경로 추출 (버킷명 이후 부분) — VIDEO(대문자) 버킷 기준
-    const marker = '/object/public/VIDEO/';
+    const marker = '/object/public/video/';
     const idx    = url.indexOf(marker);
     if (idx === -1) return;
     const path   = url.slice(idx + marker.length);
 
-    await fetch(`${SB_STORAGE}/object/VIDEO/${path}`, {
+    await fetch(`${SB_STORAGE}/object/video/${path}`, {
       method: 'DELETE',
       headers: {
         'apikey':        SUPABASE_ANON,
