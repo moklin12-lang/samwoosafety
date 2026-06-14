@@ -1247,6 +1247,124 @@ ul { list-style: none; }
 .st-badge.st-pending  { background: #fef9c3; color: #a16207; }
 .st-badge.st-rejected { background: #fee2e2; color: #b91c1c; }
 
+/* ===================================================================
+   모바일 반응형
+=================================================================== */
+
+/* 햄버거 버튼 — 데스크톱에서는 숨김 */
+.hamburger-btn {
+  display: none;
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  color: rgba(255,255,255,0.9);
+  font-size: 1.1rem;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.hamburger-btn:hover { background: rgba(255,255,255,0.12); }
+
+/* 오버레이 배경 */
+.side-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 199;
+}
+.side-overlay.visible { display: block; }
+
+/* ── 태블릿 (768px ~ 1023px) ── */
+@media (max-width: 1023px) {
+  .site-header { padding: 0 16px; }
+  .logo-title   { font-size: 0.95rem; }
+  .hdr-logout-btn span { display: none; }
+  .hdr-logout-btn { padding: 7px 10px; }
+  .side-panel { width: 200px; min-width: 200px; }
+  .post-detail { padding: 24px 20px; }
+}
+
+/* ── 모바일 (~ 767px) ── */
+@media (max-width: 767px) {
+
+  /* 헤더 */
+  .site-header { padding: 0 12px; height: 56px; }
+  .logo-shield  { width: 34px; height: 38px; }
+  .logo-title   { font-size: 0.88rem; }
+  .logo-greeting { display: none; }
+  .hdr-logout-btn { display: none; }
+  .hamburger-btn  { display: flex; }
+
+  /* 탭 네비 */
+  .tab-nav { position: sticky; top: 56px; z-index: 200; }
+  .tab-item { padding: 0 12px; height: 42px; font-size: 0.76rem; }
+  .tab-item i { font-size: 0.8rem; }
+
+  /* 본문 영역 높이 재조정 */
+  .body-wrap {
+    height: calc(100vh - 56px - 52px);
+    position: relative;
+  }
+
+  /* 사이드패널 — 기본은 숨기고, drawer-open 클래스로 표시 */
+  .side-panel {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    height: calc(100vh - 56px);
+    width: 280px;
+    min-width: 280px;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+  }
+  .side-panel.drawer-open {
+    transform: translateX(0);
+  }
+
+  /* 콘텐츠 뷰 — 전체 너비 사용 */
+  .content-view { width: 100%; }
+
+  /* 게시물 상세 패딩 축소 */
+  .post-detail { padding: 18px 14px; }
+  .post-detail-header h2 { font-size: 1.05rem; }
+  .detail-meta { flex-wrap: wrap; gap: 8px; font-size: 0.72rem; }
+
+  /* 스텝 카드 2열 */
+  .step-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  /* 이미지 갤러리 */
+  .detail-img-gallery img { width: 120px; height: 90px; }
+
+  /* 관리자 패널 */
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .member-card-info { grid-template-columns: repeat(2, 1fr); }
+
+  /* 모달 */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-box { border-radius: 18px 18px 0 0; max-height: 92vh; width: 100%; max-width: 100%; }
+}
+
+/* ── 소형 모바일 (~ 479px) ── */
+@media (max-width: 479px) {
+  .site-header { padding: 0 10px; }
+  .logo-title   { font-size: 0.82rem; }
+  .tab-item span { font-size: 0.7rem; }
+  .tab-item { padding: 0 10px; }
+
+  /* 스텝 카드 1열 */
+  .step-grid { grid-template-columns: 1fr; }
+
+  /* 관리자 통계 1열 */
+  .admin-stats-grid { grid-template-columns: 1fr; }
+  .member-card-info { grid-template-columns: 1fr; }
+
+  .post-detail { padding: 14px 12px; }
+  .post-detail-header h2 { font-size: 0.98rem; }
+}
+
 /* 교육구분 배지 */
 .st-tab-badge {
   display: inline-block;
