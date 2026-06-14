@@ -1294,38 +1294,95 @@ ul { list-style: none; }
   .logo-title   { font-size: 0.88rem; }
   .logo-greeting { display: none; }
   .hdr-logout-btn { display: none; }
-  .hamburger-btn  { display: flex; }
+  .hamburger-btn  { display: none; } /* 햄버거 버튼 숨김 */
 
   /* 탭 네비 */
   .tab-nav { position: sticky; top: 56px; z-index: 200; }
   .tab-item { padding: 0 12px; height: 42px; font-size: 0.76rem; }
   .tab-item i { font-size: 0.8rem; }
 
-  /* 본문 영역 높이 재조정 */
+  /* 본문 — 세로로 쌓기 (사이드패널 위, 콘텐츠 아래) */
   .body-wrap {
-    height: calc(100vh - 56px - 52px);
-    position: relative;
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 56px - 52px);
+    overflow: visible;
   }
 
-  /* 사이드패널 — 기본은 숨기고, drawer-open 클래스로 표시 */
+  /* 사이드패널 — 항상 표시, 가로 전체 */
   .side-panel {
-    position: fixed;
-    top: 56px;
-    left: 0;
-    height: calc(100vh - 56px);
-    width: 280px;
-    min-width: 280px;
-    z-index: 200;
-    transform: translateX(-100%);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-  }
-  .side-panel.drawer-open {
-    transform: translateX(0);
+    width: 100%;
+    min-width: unset;
+    height: auto;
+    max-height: none;
+    border-right: none;
+    border-bottom: 2px solid var(--side-border);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    overflow-y: visible;
+    /* 드로어 효과 완전 제거 */
+    position: static;
+    transform: none !important;
+    box-shadow: none;
+    z-index: auto;
   }
 
-  /* 콘텐츠 뷰 — 전체 너비 사용 */
-  .content-view { width: 100%; }
+  /* 사이드패널 레이블 */
+  .side-panel-label {
+    width: 100%;
+    margin-bottom: 4px;
+    font-size: 0.7rem;
+  }
+
+  /* 게시물 작성 버튼 */
+  .btn-write {
+    width: auto;
+    padding: 7px 14px;
+    font-size: 0.8rem;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  /* 게시물 목록 — 가로 스크롤 */
+  .post-list {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .post-list::-webkit-scrollbar { display: none; }
+
+  /* 게시물 아이템 — 가로 카드 */
+  .post-list-item {
+    min-width: 150px;
+    max-width: 180px;
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 10px;
+  }
+  .post-item-chevron { display: none; }
+  .post-item-text {
+    font-size: 0.78rem;
+    -webkit-line-clamp: 2;
+  }
+
+  /* 콘텐츠 뷰 — 나머지 공간 차지 */
+  .content-view {
+    flex: 1;
+    width: 100%;
+    min-height: 400px;
+    overflow-y: auto;
+  }
 
   /* 게시물 상세 패딩 축소 */
   .post-detail { padding: 18px 14px; }
@@ -1353,6 +1410,9 @@ ul { list-style: none; }
   .logo-title   { font-size: 0.82rem; }
   .tab-item span { font-size: 0.7rem; }
   .tab-item { padding: 0 10px; }
+
+  .side-panel { padding: 8px 10px; gap: 6px; }
+  .post-list-item { min-width: 130px; max-width: 160px; }
 
   /* 스텝 카드 1열 */
   .step-grid { grid-template-columns: 1fr; }
