@@ -36,9 +36,122 @@ function applyUser() {
 
 // ===== 로그아웃 =====
 function handleLogout() {
+  // 로그아웃 확인 모달 닫기
+  closeLogoutConfirm();
+  closeMyPage();
   sessionStorage.removeItem('sw_user');
   localStorage.removeItem('sw_user');
-  window.location.href = 'index.html';
+  // 히스토리 전체를 replace하여 뒤로가기로 돌아오지 못하게 함
+  window.location.replace('index.html');
+}
+
+// ===================================================================
+// ===== 마이페이지 드로어 ===========================================
+// ===================================================================
+
+/** 마이페이지 열기 */
+async function openMyPage() {
+  const drawer  = document.getElementById('mypage-drawer');
+  const overlay = document.getElementById('mypage-overlay');
+  const btn     = document.getElementById('mypage-btn');
+  if (!drawer || !overlay) return;
+
+  // 사용자 정보 채우기
+  _fillMyPageInfo();
+
+  // 열기
+  drawer.classList.add('open');
+  overlay.classList.add('visible');
+  if (btn) btn.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  // 히스토리에 상태 추가 → 뒤로가기로 닫히도록
+  history.pushState({ mypage: true, page: 'dashboard' }, '');
+
+  // 시청 횟수 로드 (일반 사용자만)
+  if (!currentUser.isAdmin) {
+    try {
+      const hist = await getWatchHistory(currentUser.id);
+      const countEl = document.getElementById('mypage-watch-count');
+      if (countEl) countEl.textContent = hist.length;
+    } catch(e) {
+      console.warn('[마이페이지] 시청 기록 로드 실패:', e);
+    }
+  }
+}
+
+/** 마이페이지 닫기 */
+function closeMyPage() {
+  const drawer  = document.getElementById('mypage-drawer');
+  const overlay = document.getElementById('mypage-overlay');
+  const btn     = document.getElementById('mypage-btn');
+  if (!drawer || !overlay) return;
+
+  drawer.classList.remove('open');
+  overlay.classList.remove('visible');
+  if (btn) btn.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+/** 마이페이지 정보 채우기 */
+function _fillMyPageInfo() {
+  const u = currentUser;
+  if (!u) return;
+
+  const avatarEl   = document.getElementById('mypage-avatar');
+  const nameEl     = document.getElementById('mypage-name');
+  const badgeEl    = document.getElementById('mypage-role-badge');
+  const idEl       = document.getElementById('mypage-id');
+  const deptEl     = document.getElementById('mypage-dept');
+  const roleLbEl   = document.getElementById('mypage-role-label');
+  const watchSec   = document.getElementById('mypage-watch-section');
+
+  // 아바타 첫 글자
+  if (avatarEl) avatarEl.textContent = (u.name || u.id || '?').charAt(0).toUpperCase();
+
+  // 이름
+  if (nameEl) nameEl.textContent = u.name || u.id || '-';
+
+  // 역할 배지
+  if (badgeEl) {
+    badgeEl.textContent = u.roleLabel || (u.isAdmin ? '관리자' : '직원');
+    badgeEl.className   = 'mypage-role-badge' + (u.isAdmin ? ' admin' : '');
+  }
+
+  // 아이디
+  if (idEl) idEl.textContent = u.id || '-';
+
+  // 소속부서
+  if (deptEl) {
+    deptEl.textContent = u.dept
+      ? u.dept
+      : (u.scope === 'all' ? '전체 부서' : '-');
+  }
+
+  // 구분 (roleLabel)
+  if (roleLbEl) roleLbEl.textContent = u.roleLabel || '-';
+
+  // 관리자는 시청 현황 숨기기
+  if (watchSec) {
+    watchSec.style.display = u.isAdmin ? 'none' : '';
+  }
+}
+
+/** 로그아웃 확인 모달 열기 */
+function confirmLogout() {
+  document.getElementById('logout-confirm-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+/** 로그아웃 확인 모달 닫기 */
+function closeLogoutConfirm() {
+  const modal = document.getElementById('logout-confirm-modal');
+  if (modal) modal.classList.add('hidden');
+  // body overflow는 마이페이지가 열려있으면 그대로 hidden 유지
+  const drawer = document.getElementById('mypage-drawer');
+  if (!drawer || !drawer.classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
 }
 
 // ===== 탭별 게시물 데이터 =====
@@ -434,14 +547,16 @@ function showPostDetail(post) {
       const videoSrc = v.storageURL || v.blobURL || '';
       if (!videoSrc) return ''; // URL 없으면 건너뜀
       return `
-        <div class="detail-video-wrap">
-          <video controls playsinline preload="auto"
-            src="${videoSrc}"
-            data-post-id="${post.id}"
-            data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
-            data-vid-type="upload">
-            브라우저가 동영상을 지원하지 않습니다.
-          </video>
+        <div class="detail-video-item">
+          <div class="detail-video-wrap">
+            <video controls playsinline preload="auto"
+              src="${videoSrc}"
+              data-post-id="${post.id}"
+              data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
+              data-vid-type="upload">
+              브라우저가 동영상을 지원하지 않습니다.
+            </video>
+          </div>
           <div class="detail-video-label">
             <i class="fas fa-film"></i>
             동영상 ${i + 1} &nbsp;·&nbsp; ${v.name} &nbsp;·&nbsp; ${sizeStr}
@@ -1071,25 +1186,40 @@ function closeLightbox() {
   if (!lb || lb.classList.contains('hidden')) return;
   lb.classList.add('hidden');
   document.body.style.overflow = '';
-
-  // pushState로 추가한 히스토리 제거 (뒤로가기로 닫은 게 아닐 때만)
-  if (history.state && history.state.lightbox) {
-    history.back();
-  }
+  // 히스토리 뒤로가기 없이 현재 상태만 대시보드로 replace
+  history.replaceState({ page: 'dashboard' }, '');
 }
 
-// 뒤로가기(popstate) 이벤트 — 동영상 재생 중 또는 라이트박스가 열려있으면 페이지 이동 차단
+// 뒤로가기(popstate) 이벤트 처리
+// 우선순위: 라이트박스 → 마이페이지 → 동영상 일시정지 → 게시물 상세 → 앱 유지
 window.addEventListener('popstate', (e) => {
-  // ── 라이트박스 닫기 ──
+
+  // ── 1순위: 로그아웃 확인 모달 닫기 ──
+  const logoutModal = document.getElementById('logout-confirm-modal');
+  if (logoutModal && !logoutModal.classList.contains('hidden')) {
+    closeLogoutConfirm();
+    history.pushState({ page: 'dashboard' }, '');
+    return;
+  }
+
+  // ── 2순위: 라이트박스 닫기 ──
   const lb = document.getElementById('lightbox-overlay');
   if (lb && !lb.classList.contains('hidden')) {
     lb.classList.add('hidden');
     document.body.style.overflow = '';
-    history.pushState({ lightbox: false }, '');
+    history.pushState({ page: 'dashboard' }, '');
     return;
   }
 
-  // ── 재생 중인 동영상 일시정지 후 페이지 이동 차단 ──
+  // ── 3순위: 마이페이지 드로어 닫기 ──
+  const drawer = document.getElementById('mypage-drawer');
+  if (drawer && drawer.classList.contains('open')) {
+    closeMyPage();
+    history.pushState({ page: 'dashboard' }, '');
+    return;
+  }
+
+  // ── 4순위: 재생 중인 동영상 일시정지 ──
   const playingVideos = document.querySelectorAll('#detail-body video');
   let hasPlaying = false;
   playingVideos.forEach(vid => {
@@ -1099,20 +1229,22 @@ window.addEventListener('popstate', (e) => {
     }
   });
   if (hasPlaying) {
-    // 일시정지만 하고 페이지 이동 차단 (히스토리 복원)
-    history.pushState({ videoPlaying: false }, '');
+    history.pushState({ page: 'dashboard' }, '');
     return;
   }
 
-  // ── 게시물 상세가 열려있으면 목록으로 이동 (로그인 화면 방지) ──
+  // ── 5순위: 게시물 상세 → 목록으로 ──
   const postDetail = document.getElementById('post-detail');
   if (postDetail && !postDetail.classList.contains('hidden')) {
     showEmptyGuide();
     currentPostId = null;
     document.querySelectorAll('.post-list-item').forEach(el => el.classList.remove('active'));
-    history.pushState({ page: 'list' }, '');
+    history.pushState({ page: 'dashboard' }, '');
     return;
   }
+
+  // ── 6순위: 그 외 — 대시보드 유지 (로그인 화면으로 나가지 않음) ──
+  history.pushState({ page: 'dashboard' }, '');
 });
 
 // ===== 알림 =====
@@ -2416,8 +2548,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       const sp = document.getElementById('site-popup-overlay');
       if (sp && !sp.classList.contains('hidden')) { closeSitePopup(false); return; }
+      const lc = document.getElementById('logout-confirm-modal');
+      if (lc && !lc.classList.contains('hidden')) { closeLogoutConfirm(); return; }
       const lb = document.getElementById('lightbox-overlay');
       if (lb && !lb.classList.contains('hidden')) { closeLightbox(); return; }
+      const dr = document.getElementById('mypage-drawer');
+      if (dr && dr.classList.contains('open')) { closeMyPage(); return; }
       const cm = document.getElementById('confirm-modal');
       if (cm && !cm.classList.contains('hidden')) { closeConfirmModal(); return; }
       const mm = document.getElementById('member-edit-modal');
@@ -2426,6 +2562,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (vh && !vh.classList.contains('hidden')) { closeViewHistoryModal(); return; }
       closeWriteModal();
     }
+  });
+
+  // ── 로그아웃 확인 모달 외부 클릭 닫기 ──
+  document.getElementById('logout-confirm-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeLogoutConfirm();
   });
 
   // 회원수정 모달 외부 클릭 닫기

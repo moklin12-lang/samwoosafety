@@ -40,10 +40,12 @@ ul { list-style: none; }
 .header-left {}
 .header-logo { display: flex; align-items: center; gap: 12px; }
 .logo-shield {
-  width: 42px; height: 46px;
+  width: 46px; height: 53px;
   flex-shrink: 0;
+  overflow: visible;
 }
-.logo-shield svg { width: 100%; height: 100%; }
+.logo-shield svg,
+.logo-shield img { width: 100%; height: 100%; display: block; }
 .logo-text { display: flex; flex-direction: column; gap: 1px; }
 .logo-title {
   font-size: 1.08rem;
@@ -776,6 +778,8 @@ ul { list-style: none; }
 .detail-video-wrap {
   position: relative;
   width: 100%;
+  /* 컨테이너에 16:9 비율 고정 → video 높이 0 문제 원천 방지 */
+  aspect-ratio: 16 / 9;
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -783,13 +787,29 @@ ul { list-style: none; }
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 .detail-video-wrap video {
+  /* 컨테이너 100% 채우기 — aspect-ratio는 wrap이 담당 */
+  position: absolute;
+  top: 0; left: 0;
   width: 100%;
-  height: auto;
-  min-height: 200px;    /* 메타데이터 로드 전 최소 높이 확보 */
-  max-height: 480px;    /* 너무 큰 세로 영상 제한 */
+  height: 100%;
   display: block;
   background: #000;
-  /* aspect-ratio / object-fit 제거 → 자연 비율 유지, 검은화면 방지 */
+  /* object-fit: contain → 영상 비율 유지 + 여백은 검정으로 (검은화면 X, 납작 X) */
+  object-fit: contain;
+}
+/* 동영상 아이템 외부 컨테이너 (wrap + label을 함께 묶음) */
+.detail-video-item {
+  margin-bottom: 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+/* wrap에서 box-shadow/border-radius/overflow 제거 (item이 담당) */
+.detail-video-item .detail-video-wrap {
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  margin-bottom: 0;
 }
 .detail-video-label {
   padding: 7px 14px;
@@ -2436,4 +2456,271 @@ ul { list-style: none; }
   .vh-th-vid, .vh-th-title { display: none; }
   .vh-vidname, .vh-title { display: none; }
   .vh-modal-footer { padding: 10px 16px; }
+}
+
+/* ===================================================================
+   마이페이지 드로어 (오른쪽 슬라이드 패널)
+=================================================================== */
+
+/* ── 배경 오버레이 ── */
+.mypage-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  animation: fadeIn 0.2s ease;
+}
+.mypage-overlay.visible { display: block; }
+
+/* ── 드로어 패널 ── */
+.mypage-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  max-width: 92vw;
+  background: #ffffff;
+  z-index: 1101;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -6px 0 32px rgba(0, 0, 0, 0.18);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.mypage-drawer.open {
+  transform: translateX(0);
+}
+
+/* ── 드로어 헤더 ── */
+.mypage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+  flex-shrink: 0;
+}
+.mypage-header-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mypage-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.mypage-close-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ── 프로필 카드 ── */
+.mypage-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 20px 20px;
+  background: linear-gradient(180deg, #e8eaf6 0%, #f8f9fc 100%);
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+.mypage-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3d5afe, #1a237e);
+  color: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(61, 90, 254, 0.35);
+  border: 3px solid #ffffff;
+}
+.mypage-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.mypage-name {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mypage-role-badge-wrap { display: flex; align-items: center; gap: 6px; }
+.mypage-role-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+}
+.mypage-role-badge.admin {
+  background: #1a237e;
+  color: #ffffff;
+  border-color: #1a237e;
+}
+
+/* ── 정보 섹션 ── */
+.mypage-section {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+.mypage-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 12px;
+}
+.mypage-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mypage-info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mypage-info-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.mypage-info-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  width: 60px;
+  flex-shrink: 0;
+}
+.mypage-info-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 시청 현황 카드 ── */
+.mypage-watch-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.mypage-watch-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(22, 163, 74, 0.3);
+}
+.mypage-watch-count {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #15803d;
+  line-height: 1;
+}
+.mypage-watch-desc {
+  font-size: 0.75rem;
+  color: #4ade80;
+  margin-top: 3px;
+  color: #166534;
+}
+
+/* ── 하단 로그아웃 영역 ── */
+.mypage-footer {
+  margin-top: auto;
+  padding: 20px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+.mypage-logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  background: #fff;
+  border: 2px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s;
+}
+.mypage-logout-btn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+}
+.mypage-logout-btn:active {
+  transform: translateY(0);
+}
+.mypage-logout-btn i { font-size: 1rem; }
+
+/* ── 로그아웃 확인 버튼 ── */
+.confirm-ok-btn.logout {
+  background: #dc2626;
+  color: #fff;
+}
+.confirm-ok-btn.logout:hover { filter: brightness(0.9); }
+
+/* ── 헤더 사람 버튼 활성 상태 ── */
+.hdr-icon-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── 모바일 대응 ── */
+@media (max-width: 479px) {
+  .mypage-drawer { width: 100%; max-width: 100%; }
 }
