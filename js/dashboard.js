@@ -435,11 +435,11 @@ function showPostDetail(post) {
       if (!videoSrc) return ''; // URL 없으면 건너뜀
       return `
         <div class="detail-video-wrap">
-          <video controls playsinline
+          <video controls playsinline preload="metadata"
+            src="${videoSrc}"
             data-post-id="${post.id}"
             data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
             data-vid-type="upload">
-            <source src="${videoSrc}" type="video/mp4">
             브라우저가 동영상을 지원하지 않습니다.
           </video>
           <div class="detail-video-label">
@@ -1286,12 +1286,34 @@ async function _refreshPopupStatusCard() {
 }
 
 // 토글 변경
-function onPopupToggle(checked) {
-  const s = loadPopupSettings();
-  s.enabled = checked;
-  localStorage.setItem(POPUP_STORAGE_KEY, JSON.stringify(s));
-  _refreshPopupStatusCard();
-  showToast(checked ? '🔔 팝업이 활성화되었습니다.' : '🔕 팝업이 비활성화되었습니다.');
+async function onPopupToggle(checked) {
+  try {
+    // 1) 현재 저장된 설정 불러오기 (await 필수 — async 함수)
+    const s = await loadPopupSettings();
+    s.enabled = checked;
+
+    // 2) Supabase DB에 enabled 값 즉시 반영
+    await sbSavePopupSettings({
+      enabled:     s.enabled,
+      type:        s.type       || 'notice',
+      title:       s.title      || '',
+      content:     s.body       || '',
+      btn_text:    s.btnText    || '확인',
+      skip_option: s.skipOption || 'yes',
+      date_start:  s.dateStart  || '',
+      date_end:    s.dateEnd    || '',
+      image_url:   s.imageData  || '',
+    });
+
+    // 3) localStorage에도 동기화
+    localStorage.setItem(POPUP_STORAGE_KEY, JSON.stringify(s));
+
+    _refreshPopupStatusCard();
+    showToast(checked ? '🔔 팝업이 활성화되었습니다.' : '🔕 팝업이 비활성화되었습니다.');
+  } catch(e) {
+    console.error('[onPopupToggle] 저장 실패:', e);
+    showToast('❌ 토글 저장 중 오류가 발생했습니다.');
+  }
 }
 
 // 팝업 유형 변경 시 미리보기 동기화 (선택)

@@ -672,11 +672,8 @@ ul { list-style: none; }
 .vid-preview {
   width: 100%;
   height: auto;
-  min-height: 160px;
   max-height: 260px;
-  aspect-ratio: 16 / 9;
   display: block;
-  object-fit: contain;
   background: #000;
 }
 /* 수정 모달 - Storage URL 동영상 플레이스홀더 */
@@ -788,12 +785,9 @@ ul { list-style: none; }
 .detail-video-wrap video {
   width: 100%;
   height: auto;
-  min-height: 200px;
-  max-height: 480px;
-  aspect-ratio: 16 / 9;
   display: block;
-  object-fit: contain;
   background: #000;
+  /* aspect-ratio / object-fit 제거 — source 태그 없이 src 직접 사용 시 자연 비율 유지 */
 }
 .detail-video-label {
   padding: 7px 14px;
