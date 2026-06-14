@@ -1115,40 +1115,182 @@ function removeImage(index) {
 // 동영상 첨부
 // ──────────────────────────────────────────
 
+// ── HEVC(H.265) 코덱 감지 ──────────────────────────────────
+// video 태그로 blobURL을 로드해 videoWidth/Height가 0×0이면 HEVC로 판단
+// canPlayType은 브라우저마다 결과가 달라 신뢰도 낮음 → 직접 디코딩 시도 방식 사용
+function _checkHevc(file) {
+  return new Promise(resolve => {
+    // 1) canPlayType으로 1차 빠른 체크
+    const tv = document.createElement('video');
+    const hevcTypes = ['video/mp4; codecs="hvc1"', 'video/mp4; codecs="hev1"', 'video/mp4; codecs="dvh1"'];
+    const browserSupportsHevc = hevcTypes.some(t => tv.canPlayType(t) !== '');
+
+    // 2) blobURL로 실제 디코딩 시도 (2초 타임아웃)
+    const blobURL = URL.createObjectURL(file);
+    const vid = document.createElement('video');
+    vid.muted = true;
+    vid.preload = 'metadata';
+
+    const cleanup = () => { URL.revokeObjectURL(blobURL); vid.src = ''; };
+    const timer = setTimeout(() => {
+      // 2초 안에 메타 못 읽으면 문제 있는 파일로 판단
+      cleanup();
+      resolve({ isHevc: true, reason: 'timeout' });
+    }, 2000);
+
+    vid.addEventListener('loadedmetadata', () => {
+      clearTimeout(timer);
+      const w = vid.videoWidth, h = vid.videoHeight;
+      cleanup();
+      if (w === 0 && h === 0) {
+        // 메타는 로드됐지만 해상도 0×0 = 브라우저 디코딩 실패 = HEVC
+        resolve({ isHevc: true, reason: 'zero-size' });
+      } else {
+        resolve({ isHevc: false, w, h });
+      }
+    });
+
+    vid.addEventListener('error', () => {
+      clearTimeout(timer);
+      cleanup();
+      const code = vid.error?.code;
+      // MEDIA_ERR_SRC_NOT_SUPPORTED(4) or MEDIA_ERR_DECODE(3) → HEVC 가능성
+      resolve({ isHevc: code === 4 || code === 3, reason: `error-${code}` });
+    });
+
+    vid.src = blobURL;
+  });
+}
+
+// HEVC 경고 모달 표시
+function _showHevcWarning(fileName, onConfirm, onCancel) {
+  // 기존 모달 제거
+  const old = document.getElementById('hevc-warning-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'hevc-warning-modal';
+  modal.style.cssText = `
+    position:fixed; inset:0; z-index:99999;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.65); padding:20px;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background:#1e293b; border-radius:16px; padding:28px 28px 22px;
+      max-width:440px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5);
+      border:1px solid #334155;
+    ">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span style="font-size:2rem;">⚠️</span>
+        <div>
+          <div style="font-size:1rem;font-weight:700;color:#fbbf24;">PC에서 재생 안 될 수 있습니다</div>
+          <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">${fileName}</div>
+        </div>
+      </div>
+      <div style="font-size:0.88rem;color:#cbd5e1;line-height:1.7;margin-bottom:20px;">
+        이 영상은 <strong style="color:#f87171;">HEVC(H.265) 코덱</strong>으로 촬영되어<br>
+        <strong style="color:#f87171;">PC 브라우저에서 재생되지 않습니다.</strong><br><br>
+        📱 <strong style="color:#86efac;">핸드폰에서는 정상 재생</strong>되므로<br>
+        모바일 전용 게시물이라면 그대로 업로드하셔도 됩니다.<br><br>
+        💻 <strong>PC에서도 재생하려면:</strong><br>
+        갤러리 앱 → 영상 선택 → <strong>공유 → 파일로 저장</strong> 후<br>
+        다시 업로드해 주세요.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="hevc-cancel-btn" style="
+          padding:9px 20px; border-radius:8px; border:1px solid #475569;
+          background:transparent; color:#94a3b8; font-size:0.88rem; cursor:pointer;
+        ">취소</button>
+        <button id="hevc-confirm-btn" style="
+          padding:9px 20px; border-radius:8px; border:none;
+          background:#f59e0b; color:#1a1a1a; font-size:0.88rem;
+          font-weight:700; cursor:pointer;
+        ">그래도 업로드</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('hevc-confirm-btn').onclick = () => { modal.remove(); onConfirm(); };
+  document.getElementById('hevc-cancel-btn').onclick  = () => { modal.remove(); onCancel(); };
+}
+
 function _handleVidFileChange(files) {
   if (!files || files.length === 0) return;
-  const MAX_SIZE  = 200 * 1024 * 1024;  // 200MB (Storage 업로드 방식)
+  const MAX_SIZE  = 200 * 1024 * 1024;  // 200MB
   const MAX_COUNT = 3;
-
-  // 동영상 확장자 목록 (file.type이 비어있는 경우 파일명으로 판단)
   const VID_EXTS  = ['mp4','mov','avi','wmv','mkv','webm','m4v','3gp','flv'];
 
-  Array.from(files).forEach(file => {
+  // 파일 배열을 순차 처리 (HEVC 체크가 async라 순서 보장)
+  const fileList = Array.from(files);
+
+  async function processNext(idx) {
+    if (idx >= fileList.length) {
+      _renderVideoPreviews();
+      document.getElementById('vid-file-input').value = '';
+      return;
+    }
+
+    const file = fileList[idx];
+
+    // ── 기본 유효성 검사 ──
     if (attachedVideos.length >= MAX_COUNT) {
       showToast(`동영상은 최대 ${MAX_COUNT}개까지 첨부할 수 있습니다.`);
       return;
     }
-
-    // MIME 타입 또는 확장자로 동영상 여부 판단
-    const ext      = file.name.split('.').pop().toLowerCase();
-    const isVideo  = file.type.startsWith('video/') || VID_EXTS.includes(ext);
+    const ext     = file.name.split('.').pop().toLowerCase();
+    const isVideo = file.type.startsWith('video/') || VID_EXTS.includes(ext);
     if (!isVideo) {
       showToast(`"${file.name}" — MP4·MOV·AVI 형식만 가능합니다.`);
+      processNext(idx + 1);
       return;
     }
     if (file.size > MAX_SIZE) {
       showToast(`"${file.name}" — 200MB를 초과한 파일입니다. (${_formatSize(file.size)})`);
+      processNext(idx + 1);
       return;
     }
-    const blobURL = URL.createObjectURL(file);
-    tempBlobURLs.push(blobURL);
-    attachedVideos.push({ file, blobURL, name: file.name, size: file.size });
-    console.log('[동영상 첨부]', file.name, _formatSize(file.size), file.type || `(확장자: .${ext})`);
-  });
 
+    // ── HEVC 감지 (MP4·MOV 만 체크, 나머지는 패스) ──
+    const needsCheck = ['mp4', 'mov', 'm4v'].includes(ext);
+    if (needsCheck) {
+      showToast('🔍 영상 코덱 확인 중...', 1500);
+      const result = await _checkHevc(file);
+      console.log(`[HEVC 체크] ${file.name}:`, result);
+
+      if (result.isHevc) {
+        // HEVC 감지 → 경고 모달
+        _showHevcWarning(file.name,
+          () => {
+            // "그래도 업로드" 선택
+            _attachVideo(file);
+            processNext(idx + 1);
+          },
+          () => {
+            // "취소" 선택
+            processNext(idx + 1);
+          }
+        );
+        return; // 모달 응답 기다림 (processNext는 콜백 안에서 호출)
+      }
+    }
+
+    _attachVideo(file);
+    processNext(idx + 1);
+  }
+
+  processNext(0);
+}
+
+// 실제 첨부 처리 (중복 제거용 분리)
+function _attachVideo(file) {
+  const ext     = file.name.split('.').pop().toLowerCase();
+  const blobURL = URL.createObjectURL(file);
+  tempBlobURLs.push(blobURL);
+  attachedVideos.push({ file, blobURL, name: file.name, size: file.size });
+  console.log('[동영상 첨부]', file.name, _formatSize(file.size), file.type || `(확장자: .${ext})`);
   _renderVideoPreviews();
-  // input 초기화 (같은 파일 재선택 허용)
-  document.getElementById('vid-file-input').value = '';
 }
 
 // 동영상 미리보기 목록 렌더
