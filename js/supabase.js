@@ -252,7 +252,7 @@ function sbRowToPost(row) {
     _rawContent:  row.raw_content  || '',
     videoId:      row.video_id     || '',
     _images:      Array.isArray(row.images) ? row.images : [],
-    _videos:      Array.isArray(row.videos) ? row.videos : [],
+    _videos:      Array.isArray(row.videos) ? row.videos : (typeof row.videos === 'string' ? JSON.parse(row.videos || '[]') : []),
     _fromDB:      true,             // DB에서 로드된 게시물 표시
   };
 }
@@ -273,6 +273,69 @@ function sbPostToRow(post) {
     images:      JSON.stringify(post._images  || []),
     videos:      JSON.stringify(post._videos  || []),
   };
+}
+
+// ===================================================================
+// ===== Storage 헬퍼 (동영상 업로드) ==============================
+// ===================================================================
+
+const SB_STORAGE = `${SUPABASE_URL}/storage/v1`;
+
+/**
+ * 동영상 파일을 Supabase Storage에 업로드하고 공개 URL 반환
+ * @param {File} file - 업로드할 파일 객체
+ * @param {string} postId - 게시물 ID (경로 구분용)
+ * @returns {string} 공개 접근 가능한 영구 URL
+ */
+async function sbUploadVideo(file, postId) {
+  const ext      = file.name.split('.').pop() || 'mp4';
+  const fileName = `${postId}_${Date.now()}.${ext}`;
+  const path     = `posts/${fileName}`;
+
+  // 1) 파일 업로드 (PUT)
+  const uploadRes = await fetch(`${SB_STORAGE}/object/videos/${path}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Content-Type':  file.type || 'video/mp4',
+      'x-upsert':      'true',
+    },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json().catch(() => ({}));
+    throw new Error(err.message || `Storage 업로드 실패 (${uploadRes.status})`);
+  }
+
+  // 2) 공개 URL 반환
+  const publicURL = `${SB_STORAGE}/object/public/videos/${path}`;
+  return publicURL;
+}
+
+/**
+ * Storage에서 동영상 파일 삭제
+ * @param {string} url - 삭제할 파일의 공개 URL
+ */
+async function sbDeleteVideo(url) {
+  try {
+    // URL에서 경로 추출 (버킷명 이후 부분)
+    const marker = '/object/public/videos/';
+    const idx    = url.indexOf(marker);
+    if (idx === -1) return;
+    const path   = url.slice(idx + marker.length);
+
+    await fetch(`${SB_STORAGE}/object/videos/${path}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey':        SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+      },
+    });
+  } catch (e) {
+    console.warn('[sbDeleteVideo] 삭제 실패:', e.message);
+  }
 }
 
 // ===================================================================

@@ -274,13 +274,16 @@ function showPostDetail(post) {
   if (post._videos && post._videos.length > 0) {
     const vidItems = post._videos.map((v, i) => {
       const sizeStr = _formatSize(v.size);
+      // storageURL(새 방식) 또는 blobURL(구형) 모두 지원
+      const videoSrc = v.storageURL || v.blobURL || '';
+      if (!videoSrc) return ''; // URL 없으면 건너뜀
       return `
         <div class="detail-video-wrap">
           <video controls playsinline
             data-post-id="${post.id}"
             data-vid-name="${(v.name||'').replace(/"/g,'&quot;')}"
             data-vid-type="upload">
-            <source src="${v.blobURL}" type="video/mp4">
+            <source src="${videoSrc}" type="video/mp4">
             브라우저가 동영상을 지원하지 않습니다.
           </video>
           <div class="detail-video-label">
@@ -386,7 +389,14 @@ function openWriteModal(postToEdit = null) {
     attachedImages = [];
   }
   if (postToEdit && postToEdit._videos && postToEdit._videos.length > 0) {
-    attachedVideos = postToEdit._videos.map(v => ({ file: null, blobURL: v.blobURL, name: v.name, size: v.size }));
+    // storageURL(새 방식) 또는 blobURL(구형) 모두 복원
+    attachedVideos = postToEdit._videos.map(v => ({
+      file:       null,
+      storageURL: v.storageURL || null,
+      blobURL:    v.storageURL || v.blobURL || null, // 미리보기용 src
+      name:       v.name,
+      size:       v.size
+    }));
   } else {
     attachedVideos = [];
   }
@@ -469,8 +479,32 @@ async function savePost() {
 
   const contentHTML  = content.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
   const savedImages  = attachedImages.map(img => ({ dataURL: img.dataURL }));
-  const savedVideos  = attachedVideos.map(v => ({ blobURL: v.blobURL, name: v.name, size: v.size }));
   const dateLabel    = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\. /g, '.').replace(/\.$/, '');
+
+  // ── 동영상: 새 파일만 Storage 업로드, 이미 URL인 것은 그대로 유지 ──
+  const targetId = editId || `post_${Date.now()}`;
+  const savedVideos = [];
+  for (const v of attachedVideos) {
+    if (v.file) {
+      // 새로 첨부된 파일 → Storage 업로드
+      try {
+        showToast(`⏳ 동영상 업로드 중... (${v.name})`);
+        const url = await sbUploadVideo(v.file, targetId);
+        savedVideos.push({ storageURL: url, name: v.name, size: v.size });
+      } catch (uploadErr) {
+        console.error('[Video Upload]', uploadErr);
+        showToast(`❌ 동영상 업로드 실패: ${v.name}`);
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장'; }
+        return;
+      }
+    } else if (v.storageURL) {
+      // 이미 Storage URL인 것 → 그대로 유지
+      savedVideos.push({ storageURL: v.storageURL, name: v.name, size: v.size });
+    } else if (v.blobURL) {
+      // 구형 blobURL (이미 저장된 게시물 수정 시 예외 처리) → 건너뜀
+      console.warn('[savePost] blobURL은 저장 불가, 건너뜀:', v.name);
+    }
+  }
 
   try {
     if (editId) {
@@ -497,7 +531,7 @@ async function savePost() {
     } else {
       // ── 신규 작성 ──
       const postDept = currentUser.scope === 'all' ? 'all' : (currentUser.dept || 'all');
-      const newId    = `post_${Date.now()}`;
+      const newId    = targetId; // 동영상 업로드 시 사용한 ID와 동일하게
       const newPost  = {
         id: newId, title, category,
         author: currentUser.name,
