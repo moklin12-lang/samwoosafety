@@ -157,6 +157,12 @@ async function loadPostsFromDB(tab) {
     staticPosts.forEach(sp => {
       if (!merged.find(mp => mp.id === sp.id)) merged.push(sp);
     });
+    // sort_order 기준 오름차순 정렬 (동일 sort_order이면 배열 순서 유지)
+    merged.sort((a, b) => {
+      const oa = typeof a.sort_order === 'number' ? a.sort_order : 9999;
+      const ob = typeof b.sort_order === 'number' ? b.sort_order : 9999;
+      return oa - ob;
+    });
     POSTS[tab] = merged;
   } catch (e) {
     console.warn(`[loadPostsFromDB] ${tab} 로드 실패:`, e.message);
@@ -183,12 +189,162 @@ async function renderPostList() {
     return;
   }
 
-  list.innerHTML = posts.map(p => `
-    <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" onclick="selectPost('${p.id}')">
-      <span class="post-item-text">${p.title}</span>
-      <i class="fas fa-chevron-right post-item-chevron"></i>
-    </div>
-  `).join('');
+  // 번호별 색상 팔레트
+  const numColors = [
+    '#3d5afe','#e53935','#43a047','#fb8c00','#8e24aa',
+    '#00897b','#d81b60','#1e88e5','#6d4c41','#00acc1'
+  ];
+
+  const isAdmin = currentUser && currentUser.isAdmin;
+
+  list.innerHTML = posts.map((p, i) => {
+    const num   = i + 1;
+    const color = numColors[(i) % numColors.length];
+    const isFirst = i === 0;
+    const isLast  = i === posts.length - 1;
+
+    // 관리자일 때만 ↑↓ 순서 변경 버튼 표시
+    const orderBtns = isAdmin ? `
+      <div class="post-order-btns" onclick="event.stopPropagation()">
+        <button class="post-order-btn${isFirst ? ' disabled' : ''}"
+          title="위로 이동"
+          onclick="${isFirst ? '' : `movePost('${p.id}','up')`}"
+          ${isFirst ? 'disabled' : ''}>
+          <i class="fas fa-chevron-up"></i>
+        </button>
+        <button class="post-order-btn${isLast ? ' disabled' : ''}"
+          title="아래로 이동"
+          onclick="${isLast ? '' : `movePost('${p.id}','down')`}"
+          ${isLast ? 'disabled' : ''}>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+      </div>` : '';
+
+    return `
+      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" onclick="selectPost('${p.id}')">
+        <span class="post-item-num" style="background:${color}">${num}</span>
+        <span class="post-item-text">${p.title}</span>
+        ${orderBtns}
+        <i class="fas fa-chevron-right post-item-chevron"></i>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== 게시물 순서 이동 (관리자 전용) =====
+async function movePost(id, direction) {
+  // 현재 탭의 전체 POSTS 배열 (getVisiblePosts는 필터링 복사본 → POSTS 직접 조작 필요)
+  const allPosts = POSTS[currentTab] || [];
+  const visible  = getVisiblePosts(currentTab);
+
+  // 보이는 목록 기준 인덱스 탐색
+  const visIdx   = visible.findIndex(p => p.id === id);
+  if (visIdx === -1) return;
+  const targetVisIdx = direction === 'up' ? visIdx - 1 : visIdx + 1;
+  if (targetVisIdx < 0 || targetVisIdx >= visible.length) return;
+
+  const postA = visible[visIdx];
+  const postB = visible[targetVisIdx];
+
+  // ── sort_order 값 교환 ──
+  // 미설정 게시물은 보이는 목록 인덱스를 기준값으로 임시 부여
+  const orderA = typeof postA.sort_order === 'number' ? postA.sort_order : (visIdx + 1) * 10;
+  const orderB = typeof postB.sort_order === 'number' ? postB.sort_order : (targetVisIdx + 1) * 10;
+
+  // 두 값이 같으면 강제로 간격 부여 후 교환
+  let newOrderA, newOrderB;
+  if (orderA === orderB) {
+    newOrderA = direction === 'up' ? orderB - 1 : orderB + 1;
+    newOrderB = orderB;
+  } else {
+    newOrderA = orderB;
+    newOrderB = orderA;
+  }
+
+  // ── 로컬 메모리 즉시 업데이트 ──
+  postA.sort_order = newOrderA;
+  postB.sort_order = newOrderB;
+
+  // POSTS[currentTab] 배열 내 두 항목 위치 교환
+  const idxA = allPosts.findIndex(p => p.id === postA.id);
+  const idxB = allPosts.findIndex(p => p.id === postB.id);
+  if (idxA !== -1 && idxB !== -1) {
+    [allPosts[idxA], allPosts[idxB]] = [allPosts[idxB], allPosts[idxA]];
+  }
+
+  // sort_order 재정렬 (항상 일관되게)
+  POSTS[currentTab].sort((a, b) => {
+    const oa = typeof a.sort_order === 'number' ? a.sort_order : 9999;
+    const ob = typeof b.sort_order === 'number' ? b.sort_order : 9999;
+    return oa - ob;
+  });
+
+  // ── 목록 즉시 재렌더 (반응성 — DB 응답 기다리지 않음) ──
+  _renderPostListLocal();
+
+  // ── Supabase DB 업데이트 (비동기, 실패 시 토스트) ──
+  try {
+    await Promise.all([
+      sbUpdatePostOrder(postA.id, newOrderA),
+      sbUpdatePostOrder(postB.id, newOrderB),
+    ]);
+  } catch (e) {
+    console.error('[movePost] DB 업데이트 실패:', e);
+    showToast('⚠️ 순서 저장 중 오류가 발생했습니다. 새로고침 후 재시도해주세요.');
+  }
+}
+
+// ===== 로컬 POSTS 메모리 기반 빠른 목록 렌더 (DB 재조회 없이) =====
+function _renderPostListLocal() {
+  const list = document.getElementById('post-list');
+  const posts = getVisiblePosts(currentTab);
+
+  if (!posts.length) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:30px 10px;color:#94a3b8;font-size:0.8rem;line-height:1.6;">
+        <i class="far fa-folder-open" style="font-size:1.8rem;display:block;margin-bottom:8px;color:#e2e8f0;"></i>
+        게시물이 없습니다
+      </div>`;
+    return;
+  }
+
+  const numColors = [
+    '#3d5afe','#e53935','#43a047','#fb8c00','#8e24aa',
+    '#00897b','#d81b60','#1e88e5','#6d4c41','#00acc1'
+  ];
+  const isAdmin = currentUser && currentUser.isAdmin;
+
+  list.innerHTML = posts.map((p, i) => {
+    const num   = i + 1;
+    const color = numColors[i % numColors.length];
+    const isFirst = i === 0;
+    const isLast  = i === posts.length - 1;
+
+    const orderBtns = isAdmin ? `
+      <div class="post-order-btns" onclick="event.stopPropagation()">
+        <button class="post-order-btn${isFirst ? ' disabled' : ''}"
+          title="위로 이동"
+          onclick="${isFirst ? '' : `movePost('${p.id}','up')`}"
+          ${isFirst ? 'disabled' : ''}>
+          <i class="fas fa-chevron-up"></i>
+        </button>
+        <button class="post-order-btn${isLast ? ' disabled' : ''}"
+          title="아래로 이동"
+          onclick="${isLast ? '' : `movePost('${p.id}','down')`}"
+          ${isLast ? 'disabled' : ''}>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+      </div>` : '';
+
+    return `
+      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" onclick="selectPost('${p.id}')">
+        <span class="post-item-num" style="background:${color}">${num}</span>
+        <span class="post-item-text">${p.title}</span>
+        ${orderBtns}
+        <i class="fas fa-chevron-right post-item-chevron"></i>
+      </div>
+    `;
+  }).join('');
 }
 
 // ===== 게시물 선택 =====
@@ -519,11 +675,13 @@ async function savePost() {
       // 새로 첨부된 파일 → Storage 업로드
       try {
         showToast(`⏳ 동영상 업로드 중... (${v.name})`);
+        console.log('[savePost] 동영상 업로드 시작:', v.name, _formatSize(v.size), 'type:', v.file.type);
         const url = await sbUploadVideo(v.file, targetId);
         savedVideos.push({ storageURL: url, name: v.name, size: v.size });
+        console.log('[savePost] 동영상 업로드 성공:', url);
       } catch (uploadErr) {
-        console.error('[Video Upload]', uploadErr);
-        showToast(`❌ 동영상 업로드 실패: ${v.name}`);
+        console.error('[Video Upload 실패]', uploadErr);
+        showToast(`❌ 동영상 업로드 실패: ${v.name} (${uploadErr.message})`);
         if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장'; }
         return;
       }
@@ -531,8 +689,11 @@ async function savePost() {
       // 이미 Storage URL인 것 → 그대로 유지
       savedVideos.push({ storageURL: v.storageURL, name: v.name, size: v.size });
     } else if (v.blobURL) {
-      // 구형 blobURL (이미 저장된 게시물 수정 시 예외 처리) → 건너뜀
-      console.warn('[savePost] blobURL은 저장 불가, 건너뜀:', v.name);
+      // blobURL만 있을 경우 (파일 객체 없음) → 저장 불가, 첨부파일 재선택 요청
+      console.warn('[savePost] blobURL은 저장 불가 (파일 객체 없음):', v.name);
+      showToast(`⚠️ "${v.name}" — 파일을 다시 첨부해주세요.`);
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장'; }
+      return;
     }
   }
 
@@ -562,6 +723,17 @@ async function savePost() {
       // ── 신규 작성 ──
       const postDept = currentUser.scope === 'all' ? 'all' : (currentUser.dept || 'all');
       const newId    = targetId; // 동영상 업로드 시 사용한 ID와 동일하게
+
+      // 해당 카테고리의 현재 최대 sort_order 조회 → +1로 맨 뒤에 추가
+      let newSortOrder = 1;
+      try {
+        const maxOrder = await sbGetMaxSortOrder(category);
+        newSortOrder = (maxOrder || 0) + 1;
+      } catch(e) {
+        // sort_order 조회 실패 시 로컬 게시물 수 기반으로 폴백
+        newSortOrder = (POSTS[category] || []).length + 1;
+      }
+
       const newPost  = {
         id: newId, title, category,
         author: currentUser.name,
@@ -572,15 +744,16 @@ async function savePost() {
         _rawContent: content,
         _images: savedImages,
         _videos: savedVideos,
+        sort_order: newSortOrder,
         _fromDB: true,
       };
 
       // Supabase INSERT
       await sbInsertPost(sbPostToRow(newPost));
 
-      // 로컬 POSTS 메모리에도 추가
+      // 로컬 POSTS 메모리에도 추가 (맨 뒤에 push, sort_order 기준으로 정렬됨)
       if (!POSTS[category]) POSTS[category] = [];
-      POSTS[category].unshift(newPost);
+      POSTS[category].push(newPost);
 
       if (currentTab !== category) {
         currentTab = category;
@@ -719,26 +892,33 @@ function removeImage(index) {
 
 function _handleVidFileChange(files) {
   if (!files || files.length === 0) return;
-  const MAX_SIZE = 50 * 1024 * 1024;  // 50MB
+  const MAX_SIZE  = 200 * 1024 * 1024;  // 200MB (Storage 업로드 방식)
   const MAX_COUNT = 3;
+
+  // 동영상 확장자 목록 (file.type이 비어있는 경우 파일명으로 판단)
+  const VID_EXTS  = ['mp4','mov','avi','wmv','mkv','webm','m4v','3gp','flv'];
 
   Array.from(files).forEach(file => {
     if (attachedVideos.length >= MAX_COUNT) {
       showToast(`동영상은 최대 ${MAX_COUNT}개까지 첨부할 수 있습니다.`);
       return;
     }
-    const isVideo = file.type.startsWith('video/');
+
+    // MIME 타입 또는 확장자로 동영상 여부 판단
+    const ext      = file.name.split('.').pop().toLowerCase();
+    const isVideo  = file.type.startsWith('video/') || VID_EXTS.includes(ext);
     if (!isVideo) {
       showToast(`"${file.name}" — MP4·MOV·AVI 형식만 가능합니다.`);
       return;
     }
     if (file.size > MAX_SIZE) {
-      showToast(`"${file.name}" — 50MB를 초과한 파일입니다. (${_formatSize(file.size)})`);
+      showToast(`"${file.name}" — 200MB를 초과한 파일입니다. (${_formatSize(file.size)})`);
       return;
     }
     const blobURL = URL.createObjectURL(file);
     tempBlobURLs.push(blobURL);
     attachedVideos.push({ file, blobURL, name: file.name, size: file.size });
+    console.log('[동영상 첨부]', file.name, _formatSize(file.size), file.type || `(확장자: .${ext})`);
   });
 
   _renderVideoPreviews();
@@ -756,19 +936,32 @@ function _renderVideoPreviews() {
     return;
   }
 
-  container.innerHTML = attachedVideos.map((v, i) => `
+  container.innerHTML = attachedVideos.map((v, i) => {
+    // blobURL(새로 첨부된 파일) 또는 storageURL(수정 모달 복원) 모두 지원
+    const videoSrc = v.blobURL || v.storageURL || '';
+    const sizeLabel = v.size ? _formatSize(v.size) : '';
+    // storageURL만 있는 경우 (수정 모달) → <video> 대신 아이콘으로 표시
+    const isStorageOnly = !v.blobURL && v.storageURL;
+    return `
     <div class="vid-preview-wrap">
-      <video class="vid-preview" controls playsinline src="${v.blobURL}"></video>
+      ${isStorageOnly
+        ? `<div class="vid-preview-placeholder">
+             <i class="fas fa-film"></i>
+             <span>저장된 동영상</span>
+           </div>`
+        : `<video class="vid-preview" controls playsinline src="${videoSrc}"></video>`
+      }
       <div class="vid-preview-info">
         <span class="vid-index-badge">동영상 ${i + 1}</span>
-        <span class="attach-filename">${v.name}</span>
-        <span class="attach-filesize">${_formatSize(v.size)}</span>
+        <span class="attach-filename">${v.name || '동영상'}</span>
+        ${sizeLabel ? `<span class="attach-filesize">${sizeLabel}</span>` : ''}
         <button class="attach-remove-btn" onclick="removeVideo(${i})" title="삭제">
           <i class="fas fa-times"></i>
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // 동영상 삭제
@@ -838,13 +1031,33 @@ function openLightbox(src) {
   document.getElementById('lightbox-img').src = src;
   lb.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // 뒤로가기 시 라이트박스만 닫히도록 히스토리에 상태 추가
+  history.pushState({ lightbox: true }, '');
 }
 
 function closeLightbox() {
   const lb = document.getElementById('lightbox-overlay');
-  if (lb) lb.classList.add('hidden');
+  if (!lb || lb.classList.contains('hidden')) return;
+  lb.classList.add('hidden');
   document.body.style.overflow = '';
+
+  // pushState로 추가한 히스토리 제거 (뒤로가기로 닫은 게 아닐 때만)
+  if (history.state && history.state.lightbox) {
+    history.back();
+  }
 }
+
+// 뒤로가기(popstate) 이벤트 — 라이트박스가 열려있으면 닫기만 함
+window.addEventListener('popstate', (e) => {
+  const lb = document.getElementById('lightbox-overlay');
+  if (lb && !lb.classList.contains('hidden')) {
+    lb.classList.add('hidden');
+    document.body.style.overflow = '';
+    // 페이지 이동 차단 (이미 popstate로 뒤로 간 상태이므로 앞으로 복원)
+    history.pushState({ lightbox: false }, '');
+  }
+});
 
 // ===== 알림 =====
 function toggleNotifications() {
@@ -882,12 +1095,14 @@ function updateNotifBadge() {
 }
 
 // ===== 토스트 =====
-function showToast(msg) {
+function showToast(msg, duration) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.remove('hidden');
   clearTimeout(window._tw);
-  window._tw = setTimeout(() => t.classList.add('hidden'), 2500);
+  // 에러(❌)/경고(⚠️) 메시지는 4.5초, 일반 메시지는 2.5초
+  const ms = duration || (msg.startsWith('❌') || msg.startsWith('⚠️') ? 4500 : 2500);
+  window._tw = setTimeout(() => t.classList.add('hidden'), ms);
 }
 
 // ===================================================================

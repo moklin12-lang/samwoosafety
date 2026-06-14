@@ -239,6 +239,69 @@ ul { list-style: none; }
 .post-item-chevron { color: #cbd5e1; font-size: 0.75rem; flex-shrink: 0; }
 .post-list-item.active .post-item-chevron { color: #3d5afe; }
 
+/* 게시물 번호 뱃지 */
+.post-item-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffffff;
+  flex-shrink: 0;
+  padding: 0 5px;
+  letter-spacing: -0.01em;
+}
+
+/* ===== 게시물 순서 변경 버튼 (관리자 전용) ===== */
+.post-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.post-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.6rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.1s;
+  line-height: 1;
+  padding: 0;
+}
+.post-order-btn:hover:not(.disabled):not(:disabled) {
+  background: #3d5afe;
+  border-color: #3d5afe;
+  color: #fff;
+  transform: scale(1.08);
+}
+.post-order-btn.disabled,
+.post-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.post-list-item.active .post-order-btn {
+  border-color: #a5b4fc;
+  background: #eff6ff;
+  color: #3d5afe;
+}
+.post-list-item.active .post-order-btn:hover:not(.disabled):not(:disabled) {
+  background: #3d5afe;
+  border-color: #3d5afe;
+  color: #fff;
+}
+
 /* ===== 오른쪽 콘텐츠 뷰어 ===== */
 .content-view {
   flex: 1;
@@ -604,13 +667,29 @@ ul { list-style: none; }
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   overflow: hidden;
-  background: #000;
+  background: #0f172a;
 }
 .vid-preview {
   width: 100%;
   max-height: 200px;
   display: block;
   background: #000;
+}
+/* 수정 모달 - Storage URL 동영상 플레이스홀더 */
+.vid-preview-placeholder {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #1e293b;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.85rem;
+}
+.vid-preview-placeholder i {
+  font-size: 1.4rem;
+  color: rgba(255,255,255,0.4);
 }
 .vid-preview-info {
   display: flex;

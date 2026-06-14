@@ -459,13 +459,13 @@
       <div class="form-row">
         <label>
           동영상 첨부
-          <span class="label-opt">(선택 · MP4/MOV/AVI · 최대 50MB · 최대 3개)</span>
+          <span class="label-opt">(선택 · MP4/MOV/AVI 등 · 최대 200MB · 최대 3개)</span>
         </label>
         <div class="attach-drop-zone" id="vid-drop-zone" onclick="document.getElementById('vid-file-input').click()">
           <i class="fas fa-film attach-drop-icon"></i>
           <p class="attach-drop-text">클릭하거나 파일을 끌어다 놓으세요</p>
-          <p class="attach-drop-limit">MP4 · MOV · AVI / 개당 최대 50MB / 최대 3개</p>
-          <input type="file" id="vid-file-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/*" multiple hidden />
+          <p class="attach-drop-limit">MP4 · MOV · AVI · MKV · WEBM / 개당 최대 200MB / 최대 3개</p>
+          <input type="file" id="vid-file-input" accept="video/*,.mp4,.mov,.avi,.wmv,.mkv,.webm,.m4v" multiple hidden />
         </div>
         <!-- 동영상 미리보기 목록 (JS 렌더) -->
         <div id="vid-preview-list" class="vid-preview-list"></div>

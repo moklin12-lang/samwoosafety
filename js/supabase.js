@@ -186,11 +186,29 @@ async function sbInsertWatchHistory(data) {
 // ===== posts 테이블 헬퍼 =========================================
 // ===================================================================
 
-/** 특정 카테고리 게시물 조회 (최신순) */
+/** 특정 카테고리 게시물 조회 (sort_order 오름차순 → created_at 내림차순) */
 async function sbGetPostsByCategory(category) {
   return await sbFetch(
-    `/posts?category=eq.${encodeURIComponent(category)}&order=created_at.desc`
+    `/posts?category=eq.${encodeURIComponent(category)}&order=sort_order.asc,created_at.desc`
   ) || [];
+}
+
+/** 게시물 sort_order만 업데이트 (순서 변경용) */
+async function sbUpdatePostOrder(postId, newOrder) {
+  return await sbFetch(`/posts?id=eq.${encodeURIComponent(postId)}`, {
+    method: 'PATCH',
+    headers: { 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ sort_order: newOrder }),
+  });
+}
+
+/** 카테고리 내 최대 sort_order 값 조회 */
+async function sbGetMaxSortOrder(category) {
+  const rows = await sbFetch(
+    `/posts?category=eq.${encodeURIComponent(category)}&order=sort_order.desc&limit=1&select=sort_order`
+  );
+  if (!rows || rows.length === 0) return 0;
+  return rows[0].sort_order || 0;
 }
 
 /** 전체 게시물 조회 (최신순) */
@@ -253,13 +271,14 @@ function sbRowToPost(row) {
     videoId:      row.video_id     || '',
     _images:      Array.isArray(row.images) ? row.images : (typeof row.images === 'string' ? JSON.parse(row.images || '[]') : []),
     _videos:      Array.isArray(row.videos) ? row.videos : (typeof row.videos === 'string' ? JSON.parse(row.videos || '[]') : []),
+    sort_order:   row.sort_order   || 0,   // 순서 관리용
     _fromDB:      true,             // DB에서 로드된 게시물 표시
   };
 }
 
 // 앱 내부 post 객체 → Supabase DB row 변환
 function sbPostToRow(post) {
-  return {
+  const row = {
     id:          post.id,
     title:       post.title        || '',
     category:    post.category     || 'main',
@@ -273,6 +292,9 @@ function sbPostToRow(post) {
     images:      JSON.stringify(post._images  || []),
     videos:      JSON.stringify(post._videos  || []),
   };
+  // sort_order가 명시된 경우에만 포함 (미설정 시 DB DEFAULT 0 사용)
+  if (typeof post.sort_order === 'number') row.sort_order = post.sort_order;
+  return row;
 }
 
 // ===================================================================
@@ -294,18 +316,31 @@ const SB_STORAGE = `${SUPABASE_URL}/storage/v1`;
  * @returns {string} 공개 접근 가능한 영구 URL
  */
 async function sbUploadImage(file, postId) {
-  const ext      = file.name.split('.').pop() || 'jpg';
+  const ext      = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const fileName = `${postId}_${Date.now()}.${ext}`;
   const path     = `posts/${fileName}`;
 
-  console.log('[sbUploadImage] 업로드 시작:', file.name, _formatFileSize(file.size));
+  // 확장자 기반 Content-Type 매핑
+  const MIME_MAP = {
+    'jpg':  'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png':  'image/png',
+    'gif':  'image/gif',
+    'webp': 'image/webp',
+    'bmp':  'image/bmp',
+  };
+  const contentType = file.type && file.type.startsWith('image/')
+    ? file.type
+    : (MIME_MAP[ext] || 'image/jpeg');
+
+  console.log('[sbUploadImage] 업로드 시작:', file.name, _formatFileSize(file.size), 'type:', contentType);
 
   const uploadRes = await fetch(`${SB_STORAGE}/object/images/${path}`, {
     method: 'POST',
     headers: {
       'apikey':        SUPABASE_ANON,
       'Authorization': `Bearer ${SUPABASE_ANON}`,
-      'Content-Type':  file.type || 'image/jpeg',
+      'Content-Type':  contentType,
       'x-upsert':      'true',
     },
     body: file,
@@ -329,18 +364,34 @@ async function sbUploadImage(file, postId) {
 }
 
 async function sbUploadVideo(file, postId) {
-  const ext      = file.name.split('.').pop() || 'mp4';
+  const ext      = (file.name.split('.').pop() || 'mp4').toLowerCase();
   const fileName = `${postId}_${Date.now()}.${ext}`;
   const path     = `posts/${fileName}`;
 
-  console.log('[sbUploadVideo] 업로드 시작:', file.name, _formatFileSize(file.size), '→', path);
+  // 확장자 기반 Content-Type 매핑 (file.type이 비어있는 경우 대비)
+  const MIME_MAP = {
+    'mp4':  'video/mp4',
+    'mov':  'video/quicktime',
+    'avi':  'video/x-msvideo',
+    'wmv':  'video/x-ms-wmv',
+    'mkv':  'video/x-matroska',
+    'webm': 'video/webm',
+    'm4v':  'video/x-m4v',
+    '3gp':  'video/3gpp',
+    'flv':  'video/x-flv',
+  };
+  const contentType = file.type && file.type.startsWith('video/')
+    ? file.type
+    : (MIME_MAP[ext] || 'video/mp4');
 
-  const uploadRes = await fetch(`${SB_STORAGE}/object/videos/${path}`, {
+  console.log('[sbUploadVideo] 업로드 시작:', file.name, _formatFileSize(file.size), '→', path, 'type:', contentType);
+
+  const uploadRes = await fetch(`${SB_STORAGE}/object/VIDEO/${path}`, {
     method: 'POST',
     headers: {
       'apikey':        SUPABASE_ANON,
       'Authorization': `Bearer ${SUPABASE_ANON}`,
-      'Content-Type':  file.type || 'video/mp4',
+      'Content-Type':  contentType,
       'x-upsert':      'true',
     },
     body: file,
@@ -352,9 +403,9 @@ async function sbUploadVideo(file, postId) {
 
     // 상태 코드별 친절한 안내
     if (uploadRes.status === 400) {
-      throw new Error('버킷이 존재하지 않거나 파일 형식이 잘못되었습니다. (videos 버킷 확인 필요)');
+      throw new Error('버킷이 존재하지 않거나 파일 형식이 잘못되었습니다. (VIDEO 버킷 확인 필요)');
     } else if (uploadRes.status === 403) {
-      throw new Error('Storage 업로드 권한이 없습니다. Supabase Storage → videos 버킷 → Policies에서 INSERT 정책을 추가해 주세요.');
+      throw new Error('Storage 업로드 권한이 없습니다. Supabase Storage → VIDEO 버킷 → Policies에서 INSERT 정책을 추가해 주세요.');
     } else if (uploadRes.status === 404) {
       throw new Error('"videos" 버킷이 없습니다. Supabase Storage에서 버킷을 먼저 생성해 주세요.');
     } else {
@@ -363,7 +414,7 @@ async function sbUploadVideo(file, postId) {
   }
 
   // 공개 URL 반환
-  const publicURL = `${SB_STORAGE}/object/public/videos/${path}`;
+  const publicURL = `${SB_STORAGE}/object/public/VIDEO/${path}`;
   console.log('[sbUploadVideo] 성공:', publicURL);
   return publicURL;
 }
@@ -382,13 +433,13 @@ function _formatFileSize(bytes) {
  */
 async function sbDeleteVideo(url) {
   try {
-    // URL에서 경로 추출 (버킷명 이후 부분)
-    const marker = '/object/public/videos/';
+    // URL에서 경로 추출 (버킷명 이후 부분) — VIDEO(대문자) 버킷 기준
+    const marker = '/object/public/VIDEO/';
     const idx    = url.indexOf(marker);
     if (idx === -1) return;
     const path   = url.slice(idx + marker.length);
 
-    await fetch(`${SB_STORAGE}/object/videos/${path}`, {
+    await fetch(`${SB_STORAGE}/object/VIDEO/${path}`, {
       method: 'DELETE',
       headers: {
         'apikey':        SUPABASE_ANON,
