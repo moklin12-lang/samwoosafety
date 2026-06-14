@@ -500,11 +500,30 @@ function showPostDetail(post) {
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
 
-  // ── 업로드 동영상 play 이벤트 → 시청 기록 저장 ──
+  // ── 업로드 동영상 play 이벤트 → 시청 기록 저장 + 뒤로가기 제어 ──
   document.querySelectorAll('#detail-body video[data-post-id]').forEach(vid => {
-    vid.addEventListener('play', function onPlay() {
-      vid.removeEventListener('play', onPlay); // 한 번만 기록
-      recordVideoWatch(post, vid.dataset.vidName, vid.dataset.vidType);
+    // 재생 시작 시
+    vid.addEventListener('play', function() {
+      // 시청 기록 (최초 1회)
+      if (!vid.dataset.logged) {
+        vid.dataset.logged = '1';
+        recordVideoWatch(post, vid.dataset.vidName, vid.dataset.vidType);
+      }
+      // 뒤로가기 시 로그인으로 가지 않도록 히스토리 상태 추가
+      if (!history.state || !history.state.videoPlaying) {
+        history.pushState({ videoPlaying: true }, '');
+      }
+    });
+    // 일시정지/종료 시 히스토리 상태 해제
+    vid.addEventListener('pause', function() {
+      if (history.state && history.state.videoPlaying) {
+        history.replaceState({ videoPlaying: false }, '');
+      }
+    });
+    vid.addEventListener('ended', function() {
+      if (history.state && history.state.videoPlaying) {
+        history.replaceState({ videoPlaying: false }, '');
+      }
     });
   });
 }
@@ -1048,14 +1067,40 @@ function closeLightbox() {
   }
 }
 
-// 뒤로가기(popstate) 이벤트 — 라이트박스가 열려있으면 닫기만 함
+// 뒤로가기(popstate) 이벤트 — 동영상 재생 중 또는 라이트박스가 열려있으면 페이지 이동 차단
 window.addEventListener('popstate', (e) => {
+  // ── 라이트박스 닫기 ──
   const lb = document.getElementById('lightbox-overlay');
   if (lb && !lb.classList.contains('hidden')) {
     lb.classList.add('hidden');
     document.body.style.overflow = '';
-    // 페이지 이동 차단 (이미 popstate로 뒤로 간 상태이므로 앞으로 복원)
     history.pushState({ lightbox: false }, '');
+    return;
+  }
+
+  // ── 재생 중인 동영상 일시정지 후 페이지 이동 차단 ──
+  const playingVideos = document.querySelectorAll('#detail-body video');
+  let hasPlaying = false;
+  playingVideos.forEach(vid => {
+    if (!vid.paused) {
+      vid.pause();
+      hasPlaying = true;
+    }
+  });
+  if (hasPlaying) {
+    // 일시정지만 하고 페이지 이동 차단 (히스토리 복원)
+    history.pushState({ videoPlaying: false }, '');
+    return;
+  }
+
+  // ── 게시물 상세가 열려있으면 목록으로 이동 (로그인 화면 방지) ──
+  const postDetail = document.getElementById('post-detail');
+  if (postDetail && !postDetail.classList.contains('hidden')) {
+    showEmptyGuide();
+    currentPostId = null;
+    document.querySelectorAll('.post-list-item').forEach(el => el.classList.remove('active'));
+    history.pushState({ page: 'list' }, '');
+    return;
   }
 });
 
@@ -1162,7 +1207,9 @@ async function savePopupSettings() {
   const type      = typeRadio ? typeRadio.value : 'notice';
   const enabled   = document.getElementById('popup-enabled-chk').checked;
   const imgPreview = document.getElementById('popup-img-preview');
-  const imageData  = imgPreview ? imgPreview.src : '';
+  // .src는 절대 URL로 변환되므로 getAttribute('src')로 원본값 확인
+  const rawSrc = imgPreview ? (imgPreview.getAttribute('src') || '') : '';
+  const imageData = (rawSrc && rawSrc.startsWith('data:')) ? rawSrc : '';
 
   if (!title) { showToast('⚠️ 팝업 제목을 입력해주세요.'); return; }
   if (!body)  { showToast('⚠️ 팝업 내용을 입력해주세요.');  return; }
@@ -1330,21 +1377,46 @@ function openPopupPreview() {
 
 // ─── 접속 팝업 표시 (실제 접속 시) ───
 async function checkAndShowPopup() {
-  const s = await loadPopupSettings();
-  if (!s.enabled) return;
+  try {
+    const s = await loadPopupSettings();
+    console.log('[Popup] 설정 로드:', JSON.stringify({
+      enabled: s.enabled, title: s.title, body: s.body,
+      dateStart: s.dateStart, dateEnd: s.dateEnd
+    }));
 
-  // 기간 체크
-  const today = new Date().toISOString().slice(0,10);
-  if (s.dateStart && today < s.dateStart) return;
-  if (s.dateEnd   && today > s.dateEnd)   return;
+    if (!s.enabled) {
+      console.log('[Popup] 비활성화 상태 → 표시 안 함');
+      return;
+    }
 
-  // 오늘 하루 안보기 체크
-  const skipUntil = localStorage.getItem(POPUP_SKIP_KEY);
-  if (skipUntil && today <= skipUntil) return;
+    // 기간 체크
+    const today = new Date().toISOString().slice(0,10);
+    if (s.dateStart && today < s.dateStart) {
+      console.log('[Popup] 시작일 이전 → 표시 안 함:', s.dateStart);
+      return;
+    }
+    if (s.dateEnd && today > s.dateEnd) {
+      console.log('[Popup] 종료일 이후 → 표시 안 함:', s.dateEnd);
+      return;
+    }
 
-  if (!s.title && !s.body) return;
+    // 오늘 하루 안보기 체크
+    const skipUntil = localStorage.getItem(POPUP_SKIP_KEY);
+    if (skipUntil && today <= skipUntil) {
+      console.log('[Popup] 오늘 하루 안보기 설정됨 (until:', skipUntil + ') → 표시 안 함');
+      return;
+    }
 
-  _showSitePopup(s, false);
+    if (!s.title && !s.body) {
+      console.log('[Popup] 제목/내용 없음 → 표시 안 함');
+      return;
+    }
+
+    console.log('[Popup] ✅ 팝업 표시!');
+    _showSitePopup(s, false);
+  } catch(e) {
+    console.error('[Popup] checkAndShowPopup 오류:', e);
+  }
 }
 
 function _showSitePopup(s, isPreview) {
@@ -2278,6 +2350,10 @@ document.addEventListener('DOMContentLoaded', () => {
   switchTab('main');
   updateNotifBadge();
 
+  // ── 앱 진입 시 기본 히스토리 상태 설정 ──
+  // 뒤로가기로 로그인 페이지로 나가지 않도록 현재 상태를 replace
+  history.replaceState({ page: 'dashboard' }, '');
+
   // 탭 클릭
   document.querySelectorAll('.tab-item[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -2332,8 +2408,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === e.currentTarget) closeViewHistoryModal();
   });
 
-  // ── 접속 팝업 체크 ──
-  checkAndShowPopup();
+  // ── 접속 팝업 체크 (Supabase 연결 안정화 후 실행) ──
+  setTimeout(() => checkAndShowPopup(), 600);
 
   // ── 팝업 이미지 input 이벤트 ──
   _setupPopupImgInput();
