@@ -1294,106 +1294,119 @@ ul { list-style: none; }
   .logo-title   { font-size: 0.88rem; }
   .logo-greeting { display: none; }
   .hdr-logout-btn { display: none; }
-  .hamburger-btn  { display: none; } /* 햄버거 버튼 숨김 */
+  .hamburger-btn  { display: none; }
 
   /* 탭 네비 */
   .tab-nav { position: sticky; top: 56px; z-index: 200; }
-  .tab-item { padding: 0 12px; height: 42px; font-size: 0.76rem; }
-  .tab-item i { font-size: 0.8rem; }
+  .tab-item { padding: 0 11px; height: 42px; font-size: 0.75rem; }
+  .tab-item i { font-size: 0.78rem; }
 
-  /* 본문 — 세로로 쌓기 (사이드패널 위, 콘텐츠 아래) */
+  /* 오버레이 비활성화 */
+  .side-overlay { display: none !important; }
+
+  /* ── 본문: 세로 2단 분할 ── */
   .body-wrap {
-    flex-direction: column;
-    height: auto;
+    flex-direction: column !important;
+    height: auto !important;
     min-height: calc(100vh - 56px - 52px);
-    overflow: visible;
+    overflow: visible !important;
   }
 
-  /* 사이드패널 — 항상 표시, 가로 전체 */
+  /* ── 사이드패널: 상단 가로 목록 ── */
   .side-panel {
-    width: 100%;
-    min-width: unset;
-    height: auto;
-    max-height: none;
+    /* 위치/크기 초기화 */
+    position: static !important;
+    transform: none !important;
+    box-shadow: none !important;
+    z-index: auto !important;
+    /* 레이아웃 */
+    width: 100% !important;
+    min-width: unset !important;
+    height: auto !important;
+    max-height: 160px;
     border-right: none;
     border-bottom: 2px solid var(--side-border);
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    /* 내부: 가로 배치 */
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    overflow-y: visible;
-    /* 드로어 효과 완전 제거 */
-    position: static;
-    transform: none !important;
-    box-shadow: none;
-    z-index: auto;
-  }
-
-  /* 사이드패널 레이블 */
-  .side-panel-label {
-    width: 100%;
-    margin-bottom: 4px;
-    font-size: 0.7rem;
-  }
-
-  /* 게시물 작성 버튼 */
-  .btn-write {
-    width: auto;
-    padding: 7px 14px;
-    font-size: 0.8rem;
-    margin-bottom: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    background: #fafbfc;
     flex-shrink: 0;
   }
+  .side-panel::-webkit-scrollbar { display: none; }
 
-  /* 게시물 목록 — 가로 스크롤 */
+  /* 레이블 숨김 (공간 절약) */
+  .side-panel-label { display: none; }
+
+  /* 작성 버튼 */
+  .btn-write {
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: auto;
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    margin-bottom: 0;
+  }
+
+  /* 게시물 목록 — 가로 1줄 */
   .post-list {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     gap: 8px;
     overflow-x: auto;
+    overflow-y: hidden;
     flex: 1;
     min-width: 0;
-    padding-bottom: 4px;
     scrollbar-width: none;
+    padding: 2px 0;
   }
   .post-list::-webkit-scrollbar { display: none; }
 
-  /* 게시물 아이템 — 가로 카드 */
+  /* 게시물 카드 — 가로 고정 너비 */
   .post-list-item {
-    min-width: 150px;
-    max-width: 180px;
     flex-shrink: 0;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 0;
     padding: 8px 10px;
+    height: auto;
   }
   .post-item-chevron { display: none; }
   .post-item-text {
-    font-size: 0.78rem;
-    -webkit-line-clamp: 2;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    -webkit-line-clamp: 3;
+    width: 100%;
   }
 
-  /* 콘텐츠 뷰 — 나머지 공간 차지 */
+  /* ── 콘텐츠 뷰: 남은 영역 전체 ── */
   .content-view {
-    flex: 1;
-    width: 100%;
-    min-height: 400px;
+    flex: 1 !important;
+    width: 100% !important;
+    min-height: 50vh;
     overflow-y: auto;
   }
 
-  /* 게시물 상세 패딩 축소 */
-  .post-detail { padding: 18px 14px; }
-  .post-detail-header h2 { font-size: 1.05rem; }
+  /* 게시물 상세 */
+  .post-detail { padding: 16px 14px; }
+  .post-detail-header h2 { font-size: 1rem; }
   .detail-meta { flex-wrap: wrap; gap: 8px; font-size: 0.72rem; }
 
   /* 스텝 카드 2열 */
   .step-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
   /* 이미지 갤러리 */
-  .detail-img-gallery img { width: 120px; height: 90px; }
+  .detail-img-gallery img { width: 110px; height: 85px; }
 
   /* 관리자 패널 */
   .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1408,21 +1421,19 @@ ul { list-style: none; }
 @media (max-width: 479px) {
   .site-header { padding: 0 10px; }
   .logo-title   { font-size: 0.82rem; }
-  .tab-item span { font-size: 0.7rem; }
-  .tab-item { padding: 0 10px; }
+  .tab-item span { font-size: 0.68rem; }
+  .tab-item { padding: 0 9px; }
 
-  .side-panel { padding: 8px 10px; gap: 6px; }
-  .post-list-item { min-width: 130px; max-width: 160px; }
+  .side-panel { padding: 8px 10px; max-height: 140px; }
+  .post-list-item { width: 120px; min-width: 120px; max-width: 120px; }
+  .post-item-text { font-size: 0.72rem; -webkit-line-clamp: 3; }
 
-  /* 스텝 카드 1열 */
   .step-grid { grid-template-columns: 1fr; }
-
-  /* 관리자 통계 1열 */
   .admin-stats-grid { grid-template-columns: 1fr; }
   .member-card-info { grid-template-columns: 1fr; }
 
-  .post-detail { padding: 14px 12px; }
-  .post-detail-header h2 { font-size: 0.98rem; }
+  .post-detail { padding: 12px 10px; }
+  .post-detail-header h2 { font-size: 0.95rem; }
 }
 
 /* 교육구분 배지 */
