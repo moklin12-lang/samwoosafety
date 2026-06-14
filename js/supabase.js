@@ -251,7 +251,7 @@ function sbRowToPost(row) {
     body:         row.body         || '',
     _rawContent:  row.raw_content  || '',
     videoId:      row.video_id     || '',
-    _images:      Array.isArray(row.images) ? row.images : [],
+    _images:      Array.isArray(row.images) ? row.images : (typeof row.images === 'string' ? JSON.parse(row.images || '[]') : []),
     _videos:      Array.isArray(row.videos) ? row.videos : (typeof row.videos === 'string' ? JSON.parse(row.videos || '[]') : []),
     _fromDB:      true,             // DB에서 로드된 게시물 표시
   };
@@ -287,12 +287,54 @@ const SB_STORAGE = `${SUPABASE_URL}/storage/v1`;
  * @param {string} postId - 게시물 ID (경로 구분용)
  * @returns {string} 공개 접근 가능한 영구 URL
  */
+/**
+ * 이미지 파일을 Supabase Storage에 업로드하고 공개 URL 반환
+ * @param {File} file - 업로드할 이미지 파일
+ * @param {string} postId - 게시물 ID (경로 구분용)
+ * @returns {string} 공개 접근 가능한 영구 URL
+ */
+async function sbUploadImage(file, postId) {
+  const ext      = file.name.split('.').pop() || 'jpg';
+  const fileName = `${postId}_${Date.now()}.${ext}`;
+  const path     = `posts/${fileName}`;
+
+  console.log('[sbUploadImage] 업로드 시작:', file.name, _formatFileSize(file.size));
+
+  const uploadRes = await fetch(`${SB_STORAGE}/object/images/${path}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Content-Type':  file.type || 'image/jpeg',
+      'x-upsert':      'true',
+    },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json().catch(() => ({}));
+    console.error('[sbUploadImage] 실패:', uploadRes.status, err);
+    if (uploadRes.status === 403) {
+      throw new Error('이미지 Storage 업로드 권한이 없습니다. images 버킷 정책을 확인해 주세요.');
+    } else if (uploadRes.status === 404) {
+      throw new Error('"images" 버킷이 없습니다. Supabase Storage에서 버킷을 생성해 주세요.');
+    } else {
+      throw new Error(err.message || err.error || `이미지 업로드 실패 (HTTP ${uploadRes.status})`);
+    }
+  }
+
+  const publicURL = `${SB_STORAGE}/object/public/images/${path}`;
+  console.log('[sbUploadImage] 성공:', publicURL);
+  return publicURL;
+}
+
 async function sbUploadVideo(file, postId) {
   const ext      = file.name.split('.').pop() || 'mp4';
   const fileName = `${postId}_${Date.now()}.${ext}`;
   const path     = `posts/${fileName}`;
 
-  // 1) 파일 업로드 (PUT)
+  console.log('[sbUploadVideo] 업로드 시작:', file.name, _formatFileSize(file.size), '→', path);
+
   const uploadRes = await fetch(`${SB_STORAGE}/object/videos/${path}`, {
     method: 'POST',
     headers: {
@@ -306,12 +348,32 @@ async function sbUploadVideo(file, postId) {
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json().catch(() => ({}));
-    throw new Error(err.message || `Storage 업로드 실패 (${uploadRes.status})`);
+    console.error('[sbUploadVideo] 실패:', uploadRes.status, err);
+
+    // 상태 코드별 친절한 안내
+    if (uploadRes.status === 400) {
+      throw new Error('버킷이 존재하지 않거나 파일 형식이 잘못되었습니다. (videos 버킷 확인 필요)');
+    } else if (uploadRes.status === 403) {
+      throw new Error('Storage 업로드 권한이 없습니다. Supabase Storage → videos 버킷 → Policies에서 INSERT 정책을 추가해 주세요.');
+    } else if (uploadRes.status === 404) {
+      throw new Error('"videos" 버킷이 없습니다. Supabase Storage에서 버킷을 먼저 생성해 주세요.');
+    } else {
+      throw new Error(err.message || err.error || `Storage 업로드 실패 (HTTP ${uploadRes.status})`);
+    }
   }
 
-  // 2) 공개 URL 반환
+  // 공개 URL 반환
   const publicURL = `${SB_STORAGE}/object/public/videos/${path}`;
+  console.log('[sbUploadVideo] 성공:', publicURL);
   return publicURL;
+}
+
+// 파일 크기 포맷 (내부용)
+function _formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 /**

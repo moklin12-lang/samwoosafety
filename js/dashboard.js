@@ -324,11 +324,14 @@ function showPostDetail(post) {
 
   // ── 첨부 이미지 갤러리 ──
   if (post._images && post._images.length > 0) {
-    const imgs = post._images.map((img, i) =>
-      `<img src="${img.dataURL}" alt="첨부 이미지 ${i+1}"
-        onclick="openLightbox('${img.dataURL}')"
-        title="클릭하여 크게 보기" />`
-    ).join('');
+    const imgs = post._images.map((img, i) => {
+      // storageURL(새 방식) 또는 dataURL(구형) 모두 지원
+      const src = img.storageURL || img.dataURL || '';
+      if (!src) return '';
+      return `<img src="${src}" alt="첨부 이미지 ${i+1}"
+        onclick="openLightbox('${src}')"
+        title="클릭하여 크게 보기" />`;
+    }).join('');
     bodyHTML += `
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;">
         <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">
@@ -384,7 +387,11 @@ function openWriteModal(postToEdit = null) {
 
   // 수정 시 기존 첨부 파일 복원
   if (postToEdit && postToEdit._images) {
-    attachedImages = postToEdit._images.map(img => ({ file: null, dataURL: img.dataURL }));
+    attachedImages = postToEdit._images.map(img => ({
+      file:       null,
+      storageURL: img.storageURL || null,
+      dataURL:    img.storageURL || img.dataURL || null, // 미리보기용
+    }));
   } else {
     attachedImages = [];
   }
@@ -477,12 +484,35 @@ async function savePost() {
     if (match) videoId = match[1];
   }
 
-  const contentHTML  = content.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
-  const savedImages  = attachedImages.map(img => ({ dataURL: img.dataURL }));
-  const dateLabel    = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\. /g, '.').replace(/\.$/, '');
+  const contentHTML = content.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
+  const dateLabel   = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\. /g, '.').replace(/\.$/, '');
+  const targetId    = editId || `post_${Date.now()}`;
+
+  // ── 이미지: 새 파일만 Storage 업로드, 이미 URL인 것은 그대로 유지 ──
+  const savedImages = [];
+  for (const img of attachedImages) {
+    if (img.file) {
+      // 새로 첨부된 파일 → Storage 업로드
+      try {
+        showToast(`⏳ 이미지 업로드 중... (${img.file.name})`);
+        const url = await sbUploadImage(img.file, targetId);
+        savedImages.push({ storageURL: url });
+      } catch (uploadErr) {
+        console.error('[Image Upload]', uploadErr);
+        showToast(`❌ 이미지 업로드 실패: ${img.file.name}`);
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> 저장'; }
+        return;
+      }
+    } else if (img.storageURL) {
+      // 이미 Storage URL → 그대로 유지
+      savedImages.push({ storageURL: img.storageURL });
+    } else if (img.dataURL) {
+      // 구형 dataURL → 그대로 유지 (하위호환)
+      savedImages.push({ dataURL: img.dataURL });
+    }
+  }
 
   // ── 동영상: 새 파일만 Storage 업로드, 이미 URL인 것은 그대로 유지 ──
-  const targetId = editId || `post_${Date.now()}`;
   const savedVideos = [];
   for (const v of attachedVideos) {
     if (v.file) {
@@ -622,7 +652,7 @@ function _formatSize(bytes) {
 
 // input[file] change 이벤트
 function _handleImgFileChange(files) {
-  const MAX_SIZE = 1 * 1024 * 1024;   // 1MB
+  const MAX_SIZE = 10 * 1024 * 1024;  // 10MB (Storage 업로드 방식으로 변경)
   const MAX_COUNT = 5;
 
   Array.from(files).forEach(file => {
@@ -635,13 +665,13 @@ function _handleImgFileChange(files) {
       return;
     }
     if (file.size > MAX_SIZE) {
-      showToast(`"${file.name}" — 1MB를 초과한 파일은 첨부할 수 없습니다. (${_formatSize(file.size)})`);
+      showToast(`"${file.name}" — 10MB를 초과한 파일은 첨부할 수 없습니다. (${_formatSize(file.size)})`);
       return;
     }
-    // FileReader로 dataURL 생성
+    // FileReader로 미리보기용 dataURL 생성 (실제 저장은 Storage)
     const reader = new FileReader();
     reader.onload = e => {
-      attachedImages.push({ file, dataURL: e.target.result });
+      attachedImages.push({ file, dataURL: e.target.result, storageURL: null });
       _renderImagePreviews();
     };
     reader.readAsDataURL(file);
@@ -664,9 +694,10 @@ function _renderImagePreviews() {
   container.innerHTML = attachedImages.map((img, i) => {
     const name = img.file ? img.file.name : `이미지 ${i+1}`;
     const sizeLabel = img.file ? _formatSize(img.file.size) : '';
+    const previewSrc = img.dataURL || img.storageURL || '';
     return `
       <div class="attach-preview-item">
-        <img src="${img.dataURL}" alt="${name}" onclick="openLightbox('${img.dataURL}')" title="클릭하여 크게 보기" />
+        <img src="${previewSrc}" alt="${name}" onclick="openLightbox('${previewSrc}')" title="클릭하여 크게 보기" />
         <button class="img-remove-btn" onclick="removeImage(${i})" title="삭제">
           <i class="fas fa-times"></i>
         </button>
