@@ -13,8 +13,11 @@ curl -s -o find-id.html "$SITE/find-id.html" && echo "OK find-id.html"
 curl -s -o css/login.css "$SITE/css/login.css" && echo "OK css/login.css"
 curl -s -o js/auth.js "$SITE/js/auth.js" && echo "OK js/auth.js"
 curl -s -o css/register.css "$SITE/css/register.css" && echo "OK css/register.css"
-curl -s -o _redirects "$SITE/_redirects" && echo "OK _redirects"
-git add .
-git commit -m "sync"
+curl -s -o js/login.js "$SITE/js/login.js" && echo "OK js/login.js"
+curl -s -o js/register.js "$SITE/js/register.js" && echo "OK js/register.js"
+curl -s -o css/find-account.css "$SITE/css/find-account.css" && echo "OK css/find-account.css"
+git add -f .
+git status
+git commit -m "sync $(date '+%Y-%m-%d %H:%M')"
 git push origin main
 echo "Done!"
