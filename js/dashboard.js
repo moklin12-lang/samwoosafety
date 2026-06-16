@@ -2201,11 +2201,22 @@ function _renderAdminScopeBanner() {
 // 대기 배지 업데이트 (Supabase)
 async function updatePendingBadge() {
   try {
-    const all  = await sbGetAllMembers();
-    const list = filterMembersByScope(all);
-    const cnt  = list.filter(u => u.status === 'pending').length;
-    const badge = document.getElementById('pending-badge');
-    if (badge) badge.textContent = cnt;
+    const all      = await sbGetAllMembers();
+    const list     = filterMembersByScope(all);
+    const pending  = list.filter(u => u.status === 'pending').length;
+    const approved = list.filter(u => u.status === 'approved').length;
+    const rejected = list.filter(u => u.status === 'rejected').length;
+    const allCnt   = approved + rejected; // 전체 회원 = pending 제외
+
+    const pendingBadge  = document.getElementById('pending-badge');
+    const allBadge      = document.getElementById('all-badge');
+    const approvedBadge = document.getElementById('approved-badge');
+    const rejectedBadge = document.getElementById('rejected-badge');
+
+    if (pendingBadge)  pendingBadge.textContent  = pending;
+    if (allBadge)      allBadge.textContent       = allCnt;
+    if (approvedBadge) approvedBadge.textContent  = approved;
+    if (rejectedBadge) rejectedBadge.textContent  = rejected;
   } catch (e) {
     console.warn('[updatePendingBadge]', e.message);
   }

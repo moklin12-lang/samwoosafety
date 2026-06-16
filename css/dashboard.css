@@ -1071,8 +1071,21 @@ ul { list-style: none; }
   justify-content: center;
   padding: 0 5px;
 }
-.member-subtab:not(.active) .pending-badge { background: #ef4444; }
-.member-subtab.active .pending-badge { background: rgba(255,255,255,0.3); }
+/* 승인대기 배지 - 빨강 */
+#mstab-pending:not(.active) #pending-badge { background: #ef4444; }
+#mstab-pending.active #pending-badge { background: rgba(255,255,255,0.3); }
+
+/* 전체회원 배지 - 파랑 */
+#mstab-all:not(.active) #all-badge { background: #3b82f6; }
+#mstab-all.active #all-badge { background: rgba(255,255,255,0.3); }
+
+/* 승인완료 배지 - 초록 */
+#mstab-approved:not(.active) #approved-badge { background: #22c55e; }
+#mstab-approved.active #approved-badge { background: rgba(255,255,255,0.3); }
+
+/* 거부됨 배지 - 회색 */
+#mstab-rejected:not(.active) #rejected-badge { background: #94a3b8; }
+#mstab-rejected.active #rejected-badge { background: rgba(255,255,255,0.3); }
 
 /* ─── 검색 ─── */
 .member-search-wrap {

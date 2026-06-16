@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>삼우에프앤지 안전 교육장</title>
   <meta name="theme-color" content="#1a237e" />
+  <!-- ✅ 캐시 완전 무력화 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -186,12 +190,15 @@
           </button>
           <button class="member-subtab" id="mstab-all" onclick="switchMemberSubTab('all')">
             <i class="fas fa-list"></i> 전체 회원
+            <span class="pending-badge" id="all-badge">0</span>
           </button>
           <button class="member-subtab" id="mstab-approved" onclick="switchMemberSubTab('approved')">
             <i class="fas fa-check-circle"></i> 승인 완료
+            <span class="pending-badge" id="approved-badge">0</span>
           </button>
           <button class="member-subtab" id="mstab-rejected" onclick="switchMemberSubTab('rejected')">
             <i class="fas fa-times-circle"></i> 거부됨
+            <span class="pending-badge" id="rejected-badge">0</span>
           </button>
         </div>
 
