@@ -21,3 +21,7 @@ git status
 git commit -m "sync $(date '+%Y-%m-%d %H:%M')"
 git push origin main
 echo "Done!"
+git pull origin main --rebase
+git push origin main
+git pull origin main --rebase
+git push origin main
