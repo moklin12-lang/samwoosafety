@@ -81,12 +81,13 @@
     </div>
   </div>
   <div class="header-right">
-    <button class="hamburger-btn" id="hamburger-btn" title="메뉴" aria-label="사이드 메뉴 열기">
-      <i class="fas fa-bars"></i>
-    </button>
     <button class="hdr-icon-btn" title="알림" id="notif-btn">
       <i class="fas fa-bell"></i>
       <span class="hdr-badge" id="notif-count">3</span>
+    </button>
+    <button class="hdr-logout-btn" title="로그아웃" onclick="confirmLogout()">
+      <i class="fas fa-sign-out-alt"></i>
+      <span class="hdr-logout-text">로그아웃</span>
     </button>
     <button class="hdr-icon-btn" id="mypage-btn" title="내 정보" onclick="openMyPage()">
       <i class="fas fa-user"></i>
@@ -791,6 +792,21 @@
         <span class="mypage-info-icon"><i class="fas fa-user-tag"></i></span>
         <span class="mypage-info-label">구분</span>
         <span class="mypage-info-value" id="mypage-role-label">-</span>
+      </li>
+      <li class="mypage-info-item">
+        <span class="mypage-info-icon"><i class="fas fa-briefcase"></i></span>
+        <span class="mypage-info-label">업무구분</span>
+        <span class="mypage-info-value" id="mypage-job-role">-</span>
+      </li>
+      <li class="mypage-info-item">
+        <span class="mypage-info-icon"><i class="fas fa-phone"></i></span>
+        <span class="mypage-info-label">전화번호</span>
+        <span class="mypage-info-value" id="mypage-tel">-</span>
+      </li>
+      <li class="mypage-info-item" id="mypage-car-item">
+        <span class="mypage-info-icon"><i class="fas fa-car"></i></span>
+        <span class="mypage-info-label">차량번호</span>
+        <span class="mypage-info-value" id="mypage-car">-</span>
       </li>
     </ul>
   </div>

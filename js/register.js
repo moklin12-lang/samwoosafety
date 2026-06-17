@@ -235,6 +235,19 @@ async function handleRegister(e) {
       return;
     }
 
+    // 전화번호 중복 체크
+    const tel = document.getElementById('reg-tel').value.trim();
+    const telExists = await sbCheckTelExists(tel);
+    if (telExists) {
+      btn.disabled = false;
+      btnText.textContent = '회원가입';
+      spinner.classList.add('hidden');
+      setMsg('msg-tel', '이미 가입된 전화번호입니다.', 'err');
+      setInputState('reg-tel', 'error');
+      document.getElementById('reg-tel').focus();
+      return;
+    }
+
     // Supabase INSERT
     await sbInsertMember({
       id:        userId,

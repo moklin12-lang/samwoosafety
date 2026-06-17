@@ -137,6 +137,9 @@ function authLogin(id, pw) {
         roleLabel: '직원',
         scope:     'self',
         dept:      member.dept,
+        tel:       member.tel  || '',
+        jobRole:   member.role || '',
+        car:       member.car  || '',
         isAdmin:   false,
       }
     };
@@ -193,6 +196,9 @@ async function authLoginAsync(id, pw) {
         roleLabel: '직원',
         scope:     'self',
         dept:      member.dept,
+        tel:       member.tel  || '',
+        jobRole:   member.role || '',
+        car:       member.car  || '',
         isAdmin:   false,
       }
     };
@@ -210,7 +216,11 @@ async function authLoginAsync(id, pw) {
       user: {
         id: member.id, name: member.name,
         role: 'user', roleLabel: '직원',
-        scope: 'self', dept: member.dept, isAdmin: false,
+        scope: 'self', dept: member.dept,
+        tel:     member.tel  || '',
+        jobRole: member.role || '',
+        car:     member.car  || '',
+        isAdmin: false,
       }
     };
   }

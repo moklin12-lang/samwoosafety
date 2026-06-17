@@ -104,6 +104,10 @@ function _fillMyPageInfo() {
   const idEl       = document.getElementById('mypage-id');
   const deptEl     = document.getElementById('mypage-dept');
   const roleLbEl   = document.getElementById('mypage-role-label');
+  const jobRoleEl  = document.getElementById('mypage-job-role');
+  const telEl      = document.getElementById('mypage-tel');
+  const carEl      = document.getElementById('mypage-car');
+  const carItemEl  = document.getElementById('mypage-car-item');
   const watchSec   = document.getElementById('mypage-watch-section');
 
   // 아바타 첫 글자
@@ -130,6 +134,29 @@ function _fillMyPageInfo() {
 
   // 구분 (roleLabel)
   if (roleLbEl) roleLbEl.textContent = u.roleLabel || '-';
+
+  // 업무구분 (가입 시 선택한 업무구분 — jobRole 필드)
+  if (jobRoleEl) {
+    jobRoleEl.textContent = u.jobRole || (u.isAdmin ? '-' : '-');
+    // 관리자는 해당 행 숨기기
+    const jobItem = jobRoleEl.closest('.mypage-info-item');
+    if (jobItem) jobItem.style.display = u.isAdmin ? 'none' : '';
+  }
+
+  // 전화번호
+  if (telEl) {
+    telEl.textContent = u.tel || '-';
+    const telItem = telEl.closest('.mypage-info-item');
+    if (telItem) telItem.style.display = u.isAdmin ? 'none' : '';
+  }
+
+  // 차량번호 (없으면 '없음' 표시, 관리자는 숨김)
+  if (carEl) {
+    carEl.textContent = u.car ? u.car : '없음';
+  }
+  if (carItemEl) {
+    carItemEl.style.display = u.isAdmin ? 'none' : '';
+  }
 
   // 관리자는 시청 현황 숨기기
   if (watchSec) {
@@ -512,16 +539,11 @@ function showPostDetail(post) {
   );
 
   // 게시물 부서 배지 (관리자에게만 표시)
+  const isAllDept = (post.dept || 'all') === 'all';
   const deptBadge = currentUser.isAdmin
-    ? `<span style="
-        display:inline-flex;align-items:center;gap:4px;
-        font-size:0.68rem;font-weight:600;
-        background:${(post.dept||'all')==='all' ? '#e3f2fd' : '#fff3e0'};
-        color:${(post.dept||'all')==='all' ? '#1565c0' : '#e65100'};
-        border:1px solid ${(post.dept||'all')==='all' ? '#90caf9' : '#ffcc80'};
-        padding:2px 8px;border-radius:10px;">
-        <i class="fas fa-building" style="font-size:0.6rem;"></i>
-        ${(post.dept||'all')==='all' ? '전체 공통' : post.dept}
+    ? `<span class="dept-badge ${isAllDept ? 'all' : 'dept'}">
+        <i class="fas fa-building" style="font-size:0.65rem;"></i>
+        ${isAllDept ? '전체 공통' : post.dept}
       </span>`
     : '';
 
@@ -531,10 +553,8 @@ function showPostDetail(post) {
     <span><i class="fas fa-eye"></i> ${post.views}회</span>
     ${deptBadge}
     ${canEdit ? `
-    <div class="post-actions">
       <button class="btn-edit-post" onclick="editPost('${post.id}')"><i class="fas fa-edit"></i> 수정</button>
-      <button class="btn-delete-post" onclick="deletePost('${post.id}')"><i class="fas fa-trash"></i> 삭제</button>
-    </div>` : ''}
+      <button class="btn-delete-post" onclick="deletePost('${post.id}')"><i class="fas fa-trash"></i> 삭제</button>` : ''}
   `;
 
   let bodyHTML = '';
@@ -604,24 +624,60 @@ function showPostDetail(post) {
   // ── 본문 ──
   bodyHTML += post.body;
 
-  // ── 첨부 이미지 갤러리 ──
+  // ── 첨부 이미지 갤러리 (슬라이더) ──
   if (post._images && post._images.length > 0) {
-    const imgs = post._images.map((img, i) => {
-      // storageURL(새 방식) 또는 dataURL(구형) 모두 지원
-      const src = img.storageURL || img.dataURL || '';
-      if (!src) return '';
-      return `<img src="${src}" alt="첨부 이미지 ${i+1}"
-        onclick="openLightbox('${src}')"
-        title="클릭하여 크게 보기" />`;
-    }).join('');
-    bodyHTML += `
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;">
-        <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">
-          <i class="fas fa-images"></i> 첨부 사진 ${post._images.length}장
-        </p>
-        <div class="detail-img-gallery">${imgs}</div>
-      </div>
-    `;
+    const validImgs = post._images
+      .map((img, i) => ({ src: img.storageURL || img.dataURL || '', idx: i }))
+      .filter(o => o.src);
+
+    if (validImgs.length === 1) {
+      // 사진 1장: 단순 표시
+      bodyHTML += `
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;">
+          <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">
+            <i class="fas fa-images"></i> 첨부 사진 1장
+          </p>
+          <img src="${validImgs[0].src}" alt="첨부 이미지"
+            class="gallery-single-img"
+            onclick="openLightbox('${validImgs[0].src}', 0, ${JSON.stringify(validImgs.map(o=>o.src)).replace(/"/g,'&quot;')})"
+            title="클릭하여 크게 보기" />
+        </div>`;
+    } else {
+      // 사진 2장 이상: 슬라이더
+      const postId   = post.id.replace(/[^a-zA-Z0-9_]/g, '_');
+      const sliderId = `slider_${postId}`;
+      const srcsJson = JSON.stringify(validImgs.map(o => o.src)).replace(/"/g, '&quot;');
+
+      const slides = validImgs.map((o, i) => `
+        <div class="gallery-slide ${i === 0 ? 'active' : ''}">
+          <img src="${o.src}" alt="첨부 이미지 ${i+1}"
+            onclick="openLightbox('${o.src}', ${i}, &quot;${srcsJson}&quot;)"
+            title="클릭하여 크게 보기" />
+        </div>`).join('');
+
+      const dots = validImgs.map((_, i) => `
+        <button class="gallery-dot ${i === 0 ? 'active' : ''}"
+          onclick="galleryGoTo('${sliderId}', ${i})" aria-label="사진 ${i+1}"></button>`
+      ).join('');
+
+      bodyHTML += `
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;">
+          <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">
+            <i class="fas fa-images"></i> 첨부 사진 ${validImgs.length}장
+            <span class="gallery-counter" id="${sliderId}_counter">1 / ${validImgs.length}</span>
+          </p>
+          <div class="gallery-slider" id="${sliderId}">
+            <div class="gallery-track">${slides}</div>
+            <button class="gallery-nav gallery-prev" onclick="galleryMove('${sliderId}', -1)" aria-label="이전">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="gallery-nav gallery-next" onclick="galleryMove('${sliderId}', 1)" aria-label="다음">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+          <div class="gallery-dots">${dots}</div>
+        </div>`;
+    }
   }
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
@@ -1375,10 +1431,55 @@ function _setupDropZone(zoneId, type) {
 }
 
 // ──────────────────────────────────────────
-// 이미지 라이트박스
+// 이미지 갤러리 슬라이더 제어
 // ──────────────────────────────────────────
 
-function openLightbox(src) {
+/** 슬라이더 현재 인덱스 저장소 */
+const _galleryIndex = {};
+
+/** 슬라이더 특정 인덱스로 이동 */
+function galleryGoTo(sliderId, idx) {
+  const slider = document.getElementById(sliderId);
+  if (!slider) return;
+  const slides = slider.querySelectorAll('.gallery-slide');
+  const dots   = slider.closest('div').parentElement.querySelectorAll('.gallery-dot');
+  const counter = document.getElementById(`${sliderId}_counter`);
+  const total   = slides.length;
+  if (!total) return;
+
+  // 범위 clamp
+  idx = ((idx % total) + total) % total;
+  _galleryIndex[sliderId] = idx;
+
+  slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+  dots.forEach((d, i)   => d.classList.toggle('active', i === idx));
+  if (counter) counter.textContent = `${idx + 1} / ${total}`;
+}
+
+/** 슬라이더 이전/다음 */
+function galleryMove(sliderId, dir) {
+  const cur = _galleryIndex[sliderId] || 0;
+  galleryGoTo(sliderId, cur + dir);
+}
+
+// ──────────────────────────────────────────
+// 이미지 라이트박스 (슬라이드 지원)
+// ──────────────────────────────────────────
+
+let _lbSrcs  = [];   // 현재 라이트박스 이미지 목록
+let _lbIndex = 0;    // 현재 인덱스
+
+function openLightbox(src, startIndex, srcsJson) {
+  // srcs 파싱
+  if (srcsJson) {
+    try {
+      _lbSrcs = typeof srcsJson === 'string' ? JSON.parse(srcsJson) : srcsJson;
+    } catch(e) { _lbSrcs = [src]; }
+  } else {
+    _lbSrcs = [src];
+  }
+  _lbIndex = (startIndex !== undefined && startIndex !== null) ? startIndex : 0;
+
   let lb = document.getElementById('lightbox-overlay');
   if (!lb) {
     lb = document.createElement('div');
@@ -1388,19 +1489,48 @@ function openLightbox(src) {
       <button class="lightbox-close" onclick="closeLightbox()" title="닫기">
         <i class="fas fa-times"></i>
       </button>
+      <button class="lightbox-nav lightbox-prev" onclick="lbMove(-1)" aria-label="이전">
+        <i class="fas fa-chevron-left"></i>
+      </button>
       <img id="lightbox-img" src="" alt="확대 이미지" />
+      <button class="lightbox-nav lightbox-next" onclick="lbMove(1)" aria-label="다음">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <div class="lightbox-counter" id="lightbox-counter"></div>
     `;
     lb.addEventListener('click', e => {
       if (e.target === lb) closeLightbox();
     });
     document.body.appendChild(lb);
   }
-  document.getElementById('lightbox-img').src = src;
+
+  _lbUpdate();
   lb.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-
-  // 뒤로가기 시 라이트박스만 닫히도록 히스토리에 상태 추가
   history.pushState({ lightbox: true }, '');
+}
+
+/** 라이트박스 이미지 업데이트 */
+function _lbUpdate() {
+  const img     = document.getElementById('lightbox-img');
+  const counter = document.getElementById('lightbox-counter');
+  const prev    = document.querySelector('.lightbox-prev');
+  const next    = document.querySelector('.lightbox-next');
+  if (img) img.src = _lbSrcs[_lbIndex] || '';
+  if (counter) {
+    counter.textContent = _lbSrcs.length > 1 ? `${_lbIndex + 1} / ${_lbSrcs.length}` : '';
+  }
+  // 1장이면 이전/다음 버튼 숨기기
+  if (prev) prev.style.display = _lbSrcs.length > 1 ? '' : 'none';
+  if (next) next.style.display = _lbSrcs.length > 1 ? '' : 'none';
+}
+
+/** 라이트박스 이전/다음 */
+function lbMove(dir) {
+  const total = _lbSrcs.length;
+  if (!total) return;
+  _lbIndex = ((_lbIndex + dir) % total + total) % total;
+  _lbUpdate();
 }
 
 function closeLightbox() {
@@ -2897,9 +3027,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 모달 외부 클릭 닫기
-  document.getElementById('write-modal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeWriteModal();
+  // 게시물 작성/수정 모달은 외부 클릭으로 닫히지 않음 (취소 버튼으로만 닫기)
+
+  // 라이트박스 키보드 제어 (←→ 슬라이드, ESC 닫기)
+  document.addEventListener('keydown', e => {
+    const lb = document.getElementById('lightbox-overlay');
+    const lbOpen = lb && !lb.classList.contains('hidden');
+    if (lbOpen) {
+      if (e.key === 'ArrowLeft')  { lbMove(-1); return; }
+      if (e.key === 'ArrowRight') { lbMove(1);  return; }
+    }
   });
 
   // ESC 닫기
@@ -2919,7 +3056,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mm && !mm.classList.contains('hidden')) { closeMemberEditModal(); return; }
       const vh = document.getElementById('view-history-modal');
       if (vh && !vh.classList.contains('hidden')) { closeViewHistoryModal(); return; }
-      closeWriteModal();
+      // ※ write-modal은 ESC로 닫히지 않음 — 취소 버튼으로만 닫기
     }
   });
 

@@ -120,6 +120,12 @@ async function sbCheckIdExists(userId) {
   return rows && rows.length > 0;
 }
 
+/** 전화번호 중복 체크 */
+async function sbCheckTelExists(tel) {
+  const rows = await sbFetch(`/members?tel=eq.${encodeURIComponent(tel)}&limit=1`);
+  return rows && rows.length > 0;
+}
+
 /** 회원 가입 (INSERT) */
 async function sbInsertMember(data) {
   return await sbFetch('/members', {

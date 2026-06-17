@@ -21,16 +21,15 @@ input { font-family: inherit; }
   height: auto;
 }
 
-/* ===== 배경 이미지 (물류창고 항공사진) ===== */
+/* ===== 배경 이미지 (삼우에프앤지 인천TC 항공사진) ===== */
 .bg-image {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background-image: url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80');
+  background-image: url('../images/bg-main.jpg');
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
-  /* Unsplash fallback: 그라디언트 */
 }
 
 /* 배경 위에 어두운 오버레이 */
