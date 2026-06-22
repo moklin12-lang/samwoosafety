@@ -304,6 +304,75 @@ ul { list-style: none; }
   color: #fff;
 }
 
+/* ===== 드래그&드롭 순서 변경 (관리자 전용) ===== */
+
+/* 드래그 핸들 아이콘 */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 32px;
+  flex-shrink: 0;
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  transition: color 0.12s, background 0.12s;
+  touch-action: none; /* 터치 스크롤 방지 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.drag-handle:hover {
+  color: #3d5afe;
+  background: #eff6ff;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* 드래그 중인 아이템 */
+.post-list-item.dragging {
+  opacity: 0.4;
+  background: #e0e7ff !important;
+  border-color: #3d5afe !important;
+  box-shadow: 0 4px 16px rgba(61,90,254,0.18) !important;
+  cursor: grabbing !important;
+}
+
+/* 드롭 위치 표시선 (위쪽) */
+.post-list-item.drag-over-top {
+  border-top: 2.5px solid #3d5afe !important;
+  background: #f0f4ff;
+}
+/* 드롭 위치 표시선 (아래쪽) */
+.post-list-item.drag-over-bottom {
+  border-bottom: 2.5px solid #3d5afe !important;
+  background: #f0f4ff;
+}
+
+/* 드래그 고스트(플로팅 미리보기) */
+#drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: #fff;
+  border: 1.5px solid #3d5afe;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(61,90,254,0.22);
+  font-size: 0.82rem;
+  color: #1a237e;
+  font-weight: 600;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.92;
+  transform: rotate(1.5deg) scale(1.03);
+  transition: opacity 0.1s;
+}
+
 /* ===== 오른쪽 콘텐츠 뷰어 ===== */
 .content-view {
   flex: 1;
@@ -913,6 +982,20 @@ ul { list-style: none; }
   align-items: center;
   gap: 6px;
 }
+
+/* 동영상 재생 오류 메시지 */
+.video-error-msg {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #c53030;
+  line-height: 1.6;
+  max-width: 640px;
+}
+.video-error-msg i { margin-right: 6px; }
 
 /* 이미지 라이트박스 */
 .lightbox-overlay {
@@ -2876,6 +2959,43 @@ ul { list-style: none; }
   .vh-th-vid, .vh-th-title { display: none; }
   .vh-vidname, .vh-title { display: none; }
   .vh-modal-footer { padding: 10px 16px; }
+}
+
+/* ─── 초소형 모바일 (갤럭시 폴드 접힘 등 ~390px) ─── */
+@media (max-width: 390px) {
+  .site-header { padding: 0 8px; }
+  /* 로고 텍스트 말줄임 처리 */
+  .logo-title {
+    font-size: 0.75rem;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .logo-shield { display: none; }
+  /* 헤더 왼쪽 min-width 제거 — 오른쪽 버튼에 공간 양보 */
+  .header-left { min-width: 0; flex: 1 1 0; overflow: hidden; }
+  .header-logo { gap: 0; min-width: 0; }
+  /* 오른쪽 버튼 영역 — 절대 줄어들지 않게 */
+  .header-right {
+    display: flex !important;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+  /* 알림·내정보 버튼 축소 */
+  .hdr-icon-btn { width: 30px; height: 30px; font-size: 0.85rem; }
+  /* 로그아웃 버튼 강제 표시 — 아이콘만 */
+  .hdr-logout-btn {
+    display: flex !important;
+    padding: 6px 8px;
+    min-width: 30px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    border-radius: 6px;
+  }
+  .hdr-logout-text { display: none !important; }
 }
 
 /* ===================================================================

@@ -297,11 +297,15 @@ async function loadPostsFromDB(tab) {
     staticPosts.forEach(sp => {
       if (!merged.find(mp => mp.id === sp.id)) merged.push(sp);
     });
-    // sort_order 기준 오름차순 정렬 (동일 sort_order이면 배열 순서 유지)
+    // sort_order 기준 오름차순 정렬 (동일 sort_order이면 최신 등록순 — created_at 내림차순)
     merged.sort((a, b) => {
       const oa = typeof a.sort_order === 'number' ? a.sort_order : 9999;
       const ob = typeof b.sort_order === 'number' ? b.sort_order : 9999;
-      return oa - ob;
+      if (oa !== ob) return oa - ob;
+      // sort_order 동일 시 최신 게시물이 위로 오도록 created_at 내림차순
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
     });
     POSTS[tab] = merged;
   } catch (e) {
@@ -340,38 +344,27 @@ async function renderPostList() {
   list.innerHTML = posts.map((p, i) => {
     const num   = i + 1;
     const color = numColors[(i) % numColors.length];
-    const isFirst = i === 0;
-    const isLast  = i === posts.length - 1;
 
-    // 관리자일 때만 ↑↓ 순서 변경 버튼 표시
-    const orderBtns = isAdmin ? `
-      <div class="post-order-btns" onclick="event.stopPropagation()">
-        <button class="post-order-btn${isFirst ? ' disabled' : ''}"
-          title="위로 이동"
-          onclick="${isFirst ? '' : `movePost('${p.id}','up')`}"
-          ${isFirst ? 'disabled' : ''}>
-          <i class="fas fa-chevron-up"></i>
-        </button>
-        <button class="post-order-btn${isLast ? ' disabled' : ''}"
-          title="아래로 이동"
-          onclick="${isLast ? '' : `movePost('${p.id}','down')`}"
-          ${isLast ? 'disabled' : ''}>
-          <i class="fas fa-chevron-down"></i>
-        </button>
-      </div>` : '';
+    // 관리자일 때만 드래그 핸들 표시
+    const dragHandle = isAdmin
+      ? `<span class="drag-handle" data-id="${p.id}" title="드래그하여 순서 변경" onclick="event.stopPropagation()"><i class="fas fa-grip-vertical"></i></span>`
+      : '';
 
     return `
-      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" onclick="selectPost('${p.id}')">
+      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" data-id="${p.id}" onclick="selectPost('${p.id}')">
+        ${dragHandle}
         <span class="post-item-num" style="background:${color}">${num}</span>
         <span class="post-item-text">${p.title}</span>
-        ${orderBtns}
         <i class="fas fa-chevron-right post-item-chevron"></i>
       </div>
     `;
   }).join('');
+
+  // 드래그&드롭 이벤트 바인딩 (관리자만, document 레벨 1회 등록)
+  if (isAdmin) _bindDragDrop();
 }
 
-// ===== 게시물 순서 이동 (관리자 전용) =====
+// ===== 게시물 순서 이동 (관리자 전용) ===
 async function movePost(id, direction) {
   // 현재 탭의 전체 POSTS 배열 (getVisiblePosts는 필터링 복사본 → POSTS 직접 조작 필요)
   const allPosts = POSTS[currentTab] || [];
@@ -434,6 +427,200 @@ async function movePost(id, direction) {
   }
 }
 
+// ===== 드래그&드롭 순서 변경 =====
+// 상태를 모듈 스코프로 분리 — DOM 재렌더 후 이벤트 중복 방지
+const _DD = {
+  dragId:    null,   // 드래그 중인 게시물 ID
+  overId:    null,   // 현재 hover 중인 게시물 ID
+  overPos:   null,   // 'top' | 'bottom'
+  saveTimer: null,
+  bound:     false,  // 이미 바인딩됐는지 여부 (중복 등록 방지)
+};
+
+// 드래그 중 hover 강조 초기화
+function _ddClearOver() {
+  if (_DD.overId) {
+    const el = document.querySelector(`#post-list .post-list-item[data-id="${_DD.overId}"]`);
+    if (el) el.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+  _DD.overId = null;
+  _DD.overPos = null;
+}
+
+// 고스트 이동
+function _ddMoveGhost(x, y) {
+  const g = document.getElementById('drag-ghost');
+  if (g) { g.style.left = (x + 14) + 'px'; g.style.top = (y - 16) + 'px'; }
+}
+
+// 좌표로 hover 아이템 ID + 위치 계산
+function _ddHitTest(clientY) {
+  const els = document.querySelectorAll(`#post-list .post-list-item:not(.dragging)`);
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (clientY >= r.top && clientY <= r.bottom) {
+      const pos = clientY < r.top + r.height / 2 ? 'top' : 'bottom';
+      return { id: el.dataset.id, pos };
+    }
+  }
+  return null;
+}
+
+// 드롭 확정: ID 두 개만 받아서 POSTS 조작
+function _ddApply(fromId, toId, toPos) {
+  if (!fromId || !toId || fromId === toId) return;
+
+  const arr = POSTS[currentTab];
+  if (!arr) return;
+
+  const fromIdx = arr.findIndex(p => p.id === fromId);
+  const toIdx   = arr.findIndex(p => p.id === toId);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  let insertIdx = toPos === 'top' ? toIdx : toIdx + 1;
+  if (fromIdx < insertIdx) insertIdx--;
+  if (fromIdx === insertIdx) return;
+
+  // 배열 직접 splice
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(insertIdx, 0, moved);
+
+  // sort_order 재부여
+  arr.forEach((p, i) => { p.sort_order = i * 10; });
+
+  console.log('[drag] 순서 변경:', fromId, '→ idx', insertIdx, '| 결과:', arr.map(p => p.title));
+
+  // 즉시 DOM 재렌더
+  _renderPostListLocal();
+
+  // DB 저장 디바운스
+  clearTimeout(_DD.saveTimer);
+  _DD.saveTimer = setTimeout(async () => {
+    try {
+      await Promise.all(arr.map(p => sbUpdatePostOrder(p.id, p.sort_order)));
+      showToast('✅ 순서가 저장되었습니다.');
+    } catch(e) {
+      console.error('[drag] DB 저장 실패:', e);
+      showToast('⚠️ 순서 저장 중 오류가 발생했습니다.');
+    }
+  }, 400);
+}
+
+// 이벤트 바인딩 — document 레벨 단 1회만 등록
+function _bindDragDrop() {
+  if (_DD.bound) return;
+  _DD.bound = true;
+
+  // ── 마우스 ──
+  document.addEventListener('mousedown', function(e) {
+    const handle = e.target.closest('#post-list .drag-handle');
+    if (!handle) return;
+    e.preventDefault();
+
+    _DD.dragId = handle.dataset.id;
+    const item = document.querySelector(`#post-list .post-list-item[data-id="${_DD.dragId}"]`);
+    if (!item) { _DD.dragId = null; return; }
+    item.classList.add('dragging');
+
+    // 고스트 생성
+    const ghost = document.createElement('div');
+    ghost.id = 'drag-ghost';
+    ghost.textContent = item.querySelector('.post-item-text')?.textContent?.trim() || '';
+    document.body.appendChild(ghost);
+    _ddMoveGhost(e.clientX, e.clientY);
+
+    function onMove(me) {
+      _ddMoveGhost(me.clientX, me.clientY);
+      _ddClearOver();
+      const hit = _ddHitTest(me.clientY);
+      if (hit && hit.id !== _DD.dragId) {
+        _DD.overId  = hit.id;
+        _DD.overPos = hit.pos;
+        const el = document.querySelector(`#post-list .post-list-item[data-id="${hit.id}"]`);
+        if (el) el.classList.add(hit.pos === 'top' ? 'drag-over-top' : 'drag-over-bottom');
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+
+      // 고스트 제거
+      const g = document.getElementById('drag-ghost');
+      if (g) g.remove();
+
+      // dragging 클래스 제거 (DOM 재렌더 전에)
+      const dragging = document.querySelector('#post-list .post-list-item.dragging');
+      if (dragging) dragging.classList.remove('dragging');
+
+      // 저장할 대상 ID / 위치를 로컬 변수에 복사 (clearOver 전에)
+      const fromId = _DD.dragId;
+      const toId   = _DD.overId;
+      const toPos  = _DD.overPos;
+
+      _ddClearOver();
+      _DD.dragId = null;
+
+      _ddApply(fromId, toId, toPos);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+
+  // ── 터치 ──
+  document.addEventListener('touchstart', function(e) {
+    const handle = e.target.closest('#post-list .drag-handle');
+    if (!handle) return;
+
+    _DD.dragId = handle.dataset.id;
+    const item = document.querySelector(`#post-list .post-list-item[data-id="${_DD.dragId}"]`);
+    if (!item) { _DD.dragId = null; return; }
+    item.classList.add('dragging');
+
+    const t = e.touches[0];
+    const ghost = document.createElement('div');
+    ghost.id = 'drag-ghost';
+    ghost.textContent = item.querySelector('.post-item-text')?.textContent?.trim() || '';
+    document.body.appendChild(ghost);
+    _ddMoveGhost(t.clientX, t.clientY);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!_DD.dragId) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    _ddMoveGhost(t.clientX, t.clientY);
+    _ddClearOver();
+    const hit = _ddHitTest(t.clientY);
+    if (hit && hit.id !== _DD.dragId) {
+      _DD.overId  = hit.id;
+      _DD.overPos = hit.pos;
+      const el = document.querySelector(`#post-list .post-list-item[data-id="${hit.id}"]`);
+      if (el) el.classList.add(hit.pos === 'top' ? 'drag-over-top' : 'drag-over-bottom');
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', function() {
+    if (!_DD.dragId) return;
+
+    const g = document.getElementById('drag-ghost');
+    if (g) g.remove();
+
+    const dragging = document.querySelector('#post-list .post-list-item.dragging');
+    if (dragging) dragging.classList.remove('dragging');
+
+    const fromId = _DD.dragId;
+    const toId   = _DD.overId;
+    const toPos  = _DD.overPos;
+
+    _ddClearOver();
+    _DD.dragId = null;
+
+    _ddApply(fromId, toId, toPos);
+  });
+}
+
 // ===== 로컬 POSTS 메모리 기반 빠른 목록 렌더 (DB 재조회 없이) =====
 function _renderPostListLocal() {
   const list = document.getElementById('post-list');
@@ -457,34 +644,24 @@ function _renderPostListLocal() {
   list.innerHTML = posts.map((p, i) => {
     const num   = i + 1;
     const color = numColors[i % numColors.length];
-    const isFirst = i === 0;
-    const isLast  = i === posts.length - 1;
 
-    const orderBtns = isAdmin ? `
-      <div class="post-order-btns" onclick="event.stopPropagation()">
-        <button class="post-order-btn${isFirst ? ' disabled' : ''}"
-          title="위로 이동"
-          onclick="${isFirst ? '' : `movePost('${p.id}','up')`}"
-          ${isFirst ? 'disabled' : ''}>
-          <i class="fas fa-chevron-up"></i>
-        </button>
-        <button class="post-order-btn${isLast ? ' disabled' : ''}"
-          title="아래로 이동"
-          onclick="${isLast ? '' : `movePost('${p.id}','down')`}"
-          ${isLast ? 'disabled' : ''}>
-          <i class="fas fa-chevron-down"></i>
-        </button>
-      </div>` : '';
+    // 관리자일 때만 드래그 핸들 표시
+    const dragHandle = isAdmin
+      ? `<span class="drag-handle" data-id="${p.id}" title="드래그하여 순서 변경" onclick="event.stopPropagation()"><i class="fas fa-grip-vertical"></i></span>`
+      : '';
 
     return `
-      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" onclick="selectPost('${p.id}')">
+      <div class="post-list-item ${p.id === currentPostId ? 'active' : ''}" data-id="${p.id}" onclick="selectPost('${p.id}')">
+        ${dragHandle}
         <span class="post-item-num" style="background:${color}">${num}</span>
         <span class="post-item-text">${p.title}</span>
-        ${orderBtns}
         <i class="fas fa-chevron-right post-item-chevron"></i>
       </div>
     `;
   }).join('');
+
+  // 드래그&드롭 이벤트 바인딩 (관리자만, document 레벨 1회 등록)
+  if (isAdmin) _bindDragDrop();
 }
 
 // ===== 게시물 선택 =====
@@ -559,6 +736,9 @@ function showPostDetail(post) {
 
   let bodyHTML = '';
 
+  // ── 본문 (내용을 동영상보다 먼저 표시) ──
+  bodyHTML += post.body;
+
   // ── 첨부 동영상 (업로드된 파일) ──
   if (post._videos && post._videos.length > 0) {
     const vidItems = post._videos.map((v, i) => {
@@ -578,8 +758,7 @@ function showPostDetail(post) {
           <div class="detail-video-wrap">
             <video id="${vidId}"
               controls playsinline
-              preload="auto"
-              crossorigin="anonymous"
+              preload="metadata"
               data-src="${videoSrc}"
               data-mime="${mimeType}"
               data-post-id="${post.id}"
@@ -607,8 +786,6 @@ function showPostDetail(post) {
 
   // ── YouTube 영상 ──
   if (post.videoId) {
-    // YouTube는 iframe이라 play 이벤트 직접 감지 불가 →
-    // iframe이 실제로 로드(클릭)될 때를 대신하여 iframe 클릭 감지용 data 저장
     bodyHTML += `
       <div class="video-wrap"
         data-post-id="${post.id}"
@@ -620,9 +797,6 @@ function showPostDetail(post) {
       </div>
     `;
   }
-
-  // ── 본문 ──
-  bodyHTML += post.body;
 
   // ── 첨부 이미지 갤러리 (슬라이더) ──
   if (post._images && post._images.length > 0) {
@@ -682,71 +856,72 @@ function showPostDetail(post) {
 
   document.getElementById('detail-body').innerHTML = bodyHTML;
 
-  // ── 비디오 src 직접 주입 + 세로영상 회전 보정 + 검은화면 방지 ──
+  // ── 비디오 src 주입 + 세로영상 보정 ──
   setTimeout(() => {
     document.querySelectorAll('#detail-body video[data-src]').forEach(vid => {
       const src      = vid.dataset.src;
       const mimeType = vid.dataset.mime || 'video/mp4';
       if (!src) return;
 
-      // ① src 직접 주입
-      vid.src  = src;
-      vid.type = mimeType;
+      // ① <source> 태그로 주입 (crossorigin 없음 — Supabase Storage CORS 충돌 방지)
+      const src_el = document.createElement('source');
+      src_el.src  = src;
+      src_el.type = mimeType;
+      vid.appendChild(src_el);
 
-      // ② loadedmetadata: 세로영상 회전 보정 + 검은화면 방지
+      // ② loadedmetadata: 세로영상 비율 보정
       vid.addEventListener('loadedmetadata', function onMeta() {
         vid.removeEventListener('loadedmetadata', onMeta);
         const wrap = vid.closest('.detail-video-wrap');
         if (!wrap) return;
-
         const vw = vid.videoWidth;
         const vh = vid.videoHeight;
-        console.log(`[video] 해상도: ${vw}x${vh}`);
-
-        // 세로 영상 감지 (높이 > 너비 = 세로 촬영 or rotation 메타데이터로 뒤바뀐 경우)
+        console.log(`[video] 해상도: ${vw}×${vh}`);
         if (vw > 0 && vh > 0) {
           if (vh > vw) {
-            // ── 세로 영상: wrap을 세로 비율로 변경 ──
             wrap.classList.add('portrait');
             wrap.style.aspectRatio = `${vw} / ${vh}`;
             wrap.style.maxWidth    = '360px';
             wrap.style.maxHeight   = '70vh';
             vid.style.objectFit    = 'contain';
-            // 부모 item도 너비 맞춤
             const item = wrap.closest('.detail-video-item');
             if (item) item.style.maxWidth = '360px';
-            console.log('[video] 세로 영상 감지 → 비율 보정:', vw, '×', vh);
+            console.log('[video] 세로 영상 보정:', vw, '×', vh);
           } else {
-            // ── 가로 영상: 실제 비율로 aspect-ratio 세팅 ──
             wrap.style.aspectRatio = `${vw} / ${vh}`;
             vid.style.objectFit    = 'contain';
             console.log('[video] 가로 영상:', vw, '×', vh);
           }
         }
-
-        // GPU 레이어 강제 재생성 (검은화면 방지)
-        wrap.style.visibility = 'hidden';
-        requestAnimationFrame(() => {
-          wrap.style.visibility = '';
-          vid.style.opacity = '0';
-          requestAnimationFrame(() => { vid.style.opacity = '1'; });
-        });
       });
 
-      // ③ 에러 시 crossorigin 제거 후 <source> 폴백 재시도
-      vid.addEventListener('error', function onErr() {
-        vid.removeEventListener('error', onErr);
-        console.warn('[video] src 직접 로드 실패, source 폴백 시도:', src);
-        vid.removeAttribute('crossorigin');
-        vid.removeAttribute('src');
-        const s = document.createElement('source');
-        s.src  = src;
-        s.type = mimeType;
-        vid.appendChild(s);
-        vid.load();
+      // ③ 에러 로그 (디버깅용)
+      vid.addEventListener('error', function() {
+        const code = vid.error?.code;
+        const msgs = {
+          1: 'MEDIA_ERR_ABORTED — 재생 중단',
+          2: 'MEDIA_ERR_NETWORK — 네트워크 오류 (URL 확인 필요)',
+          3: 'MEDIA_ERR_DECODE — 디코딩 실패 (코덱 불일치, H.265 가능성)',
+          4: 'MEDIA_ERR_SRC_NOT_SUPPORTED — 포맷/코덱 미지원',
+        };
+        console.error('[video] 재생 오류:', msgs[code] || `알 수 없음(${code})`, '| URL:', src);
+        // 에러 메시지를 영상 아래에 표시
+        const wrap = vid.closest('.detail-video-wrap');
+        if (wrap && !wrap.querySelector('.video-error-msg')) {
+          const msg = document.createElement('div');
+          msg.className = 'video-error-msg';
+          if (code === 3 || code === 4) {
+            msg.innerHTML = `<i class="fas fa-exclamation-triangle"></i> 이 기기/브라우저에서 재생할 수 없는 코덱입니다.<br><small>Chrome PC에서 재생하거나, H.264(MP4)로 변환 후 재업로드해 주세요.</small>`;
+          } else if (code === 2) {
+            msg.innerHTML = `<i class="fas fa-wifi"></i> 동영상을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.`;
+          } else {
+            msg.innerHTML = `<i class="fas fa-exclamation-circle"></i> 동영상 재생 중 오류가 발생했습니다. (코드: ${code})`;
+          }
+          wrap.insertAdjacentElement('afterend', msg);
+        }
       }, true);
 
-      // ④ 명시적 load() 호출
+      // ④ load() 호출
       vid.load();
     });
   }, 0);
@@ -1005,14 +1180,14 @@ async function savePost() {
       const postDept = currentUser.scope === 'all' ? 'all' : (currentUser.dept || 'all');
       const newId    = targetId; // 동영상 업로드 시 사용한 ID와 동일하게
 
-      // 해당 카테고리의 현재 최대 sort_order 조회 → +1로 맨 뒤에 추가
-      let newSortOrder = 1;
+      // 해당 카테고리의 현재 최솟값 sort_order 조회 → -1로 맨 앞에 추가
+      let newSortOrder = 0;
       try {
-        const maxOrder = await sbGetMaxSortOrder(category);
-        newSortOrder = (maxOrder || 0) + 1;
+        const minOrder = await sbGetMinSortOrder(category);
+        newSortOrder = (typeof minOrder === 'number' ? minOrder : 1) - 1;
       } catch(e) {
-        // sort_order 조회 실패 시 로컬 게시물 수 기반으로 폴백
-        newSortOrder = (POSTS[category] || []).length + 1;
+        // sort_order 조회 실패 시 0으로 폴백 (정렬 오름차순 기준 맨 앞)
+        newSortOrder = 0;
       }
 
       const newPost  = {
@@ -1032,9 +1207,9 @@ async function savePost() {
       // Supabase INSERT
       await sbInsertPost(sbPostToRow(newPost));
 
-      // 로컬 POSTS 메모리에도 추가 (맨 뒤에 push, sort_order 기준으로 정렬됨)
+      // 로컬 POSTS 메모리에도 추가 (맨 앞에 unshift → sort_order 오름차순 정렬 후 맨 위에 표시)
       if (!POSTS[category]) POSTS[category] = [];
-      POSTS[category].push(newPost);
+      POSTS[category].unshift(newPost);
 
       if (currentTab !== category) {
         currentTab = category;
@@ -2984,6 +3159,8 @@ async function downloadWatchExcel() {
 // ===== 초기화 =====
 document.addEventListener('DOMContentLoaded', () => {
   applyUser();
+  // 드래그&드롭 이벤트 — document 레벨 1회만 등록 (관리자 여부 무관하게 등록, 내부에서 핸들 여부 체크)
+  _bindDragDrop();
   switchTab('main');
   updateNotifBadge(0); // 초기값 0, 로드 후 갱신
 

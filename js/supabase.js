@@ -217,6 +217,15 @@ async function sbGetMaxSortOrder(category) {
   return rows[0].sort_order || 0;
 }
 
+/** 카테고리 내 최솟값 sort_order 값 조회 (신규 게시물을 맨 앞에 추가할 때 사용) */
+async function sbGetMinSortOrder(category) {
+  const rows = await sbFetch(
+    `/posts?category=eq.${encodeURIComponent(category)}&order=sort_order.asc&limit=1&select=sort_order`
+  );
+  if (!rows || rows.length === 0) return 1;
+  return typeof rows[0].sort_order === 'number' ? rows[0].sort_order : 1;
+}
+
 /** 전체 게시물 조회 (최신순) */
 async function sbGetAllPosts() {
   return await sbFetch('/posts?order=created_at.desc') || [];
